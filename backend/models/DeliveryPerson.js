@@ -24,12 +24,7 @@ const deliveryPersonSchema = new mongoose.Schema({
     required: true,
     minlength: 6
   },
-  pin: {
-    type: String,
-    required: true,
-    minlength: 4,
-    maxlength: 6
-  },
+  // PIN field removed - using email/password login instead
   address: {
     street: String,
     city: String,
@@ -148,11 +143,7 @@ deliveryPersonSchema.pre('save', async function(next) {
       this.password = await bcrypt.hash(this.password, salt);
     }
     
-    // Hash PIN if modified
-    if (this.isModified('pin')) {
-      const salt = await bcrypt.genSalt(10);
-      this.pin = await bcrypt.hash(this.pin, salt);
-    }
+    // PIN hashing removed - using email/password login instead
     
     // Set full address
     if (this.address.street && this.address.city && this.address.state && this.address.pincode) {
@@ -170,10 +161,7 @@ deliveryPersonSchema.methods.comparePassword = async function(candidatePassword)
   return await bcrypt.compare(candidatePassword, this.password);
 };
 
-// Method to compare PIN
-deliveryPersonSchema.methods.comparePin = async function(candidatePin) {
-  return await bcrypt.compare(candidatePin, this.pin);
-};
+// PIN comparison method removed - using email/password login instead
 
 // Method to update last login
 deliveryPersonSchema.methods.updateLastLogin = function() {

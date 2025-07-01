@@ -566,12 +566,16 @@ exports.loginWithPIN = async (req, res) => {
 
     switch (role) {
       case 'vendor':
-        user = await Vendor.findOne({ pin: pin, isActive: true }).populate('restaurantId');
-        userRole = 'vendor';
+        user = await Vendor.findOne({ isActive: true }).populate('restaurantId');
+        if (user && await user.comparePin(pin)) {
+          userRole = 'vendor';
+        } else {
+          user = null;
+        }
         break;
       case 'delivery':
-        user = await DeliveryPerson.findOne({ pin: pin, isActive: true });
-        userRole = 'delivery';
+        // PIN login removed for delivery - use email/password login instead
+        user = null;
         break;
       case 'admin':
         // For admin, use static PIN check

@@ -9,26 +9,35 @@ import {
   Alert,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import apiService from '../../services/apiService';
 
 const VendorLoginScreen = ({ navigation }) => {
-  const [pin, setPin] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
   const handleLogin = async () => {
-    if (!pin || pin.length !== 4) {
-      Alert.alert('Error', 'Please enter a 4-digit PIN');
+    if (!email || !password) {
+      Alert.alert('Error', 'Please enter both email and password');
       return;
     }
 
     try {
       setLoading(true);
-      const response = await apiService.vendorLogin(pin);
+      const response = await apiService.vendorLogin({ email, password });
       
       if (response.data.success) {
+        // Store vendor data and token
+        const { token, vendor } = response.data.data;
+        
+        await AsyncStorage.setItem('vendorToken', token);
+        await AsyncStorage.setItem('vendorData', JSON.stringify(vendor));
+        
+        console.log('Vendor login successful:', vendor);
         navigation.replace('VendorTabs');
       } else {
-        Alert.alert('Error', 'Invalid PIN. Please try again.');
+        Alert.alert('Error', 'Invalid credentials. Please try again.');
       }
     } catch (error) {
       console.error('Login error:', error);
@@ -43,19 +52,29 @@ const VendorLoginScreen = ({ navigation }) => {
       <View style={styles.header}>
         <MaterialIcons name="restaurant" size={80} color="#FF9800" />
         <Text style={styles.title}>Vendor Login</Text>
-        <Text style={styles.subtitle}>Enter your PIN to access your restaurant</Text>
+        <Text style={styles.subtitle}>Enter your credentials to access your restaurant</Text>
       </View>
 
       <View style={styles.form}>
         <View style={styles.inputContainer}>
+          <MaterialIcons name="email" size={24} color="#666" style={styles.inputIcon} />
+          <TextInput
+            style={styles.input}
+            placeholder="Email"
+            value={email}
+            onChangeText={setEmail}
+            keyboardType="email-address"
+            autoCapitalize="none"
+          />
+        </View>
+
+        <View style={styles.inputContainer}>
           <MaterialIcons name="lock" size={24} color="#666" style={styles.inputIcon} />
           <TextInput
             style={styles.input}
-            placeholder="Enter 4-digit PIN"
-            value={pin}
-            onChangeText={setPin}
-            keyboardType="numeric"
-            maxLength={4}
+            placeholder="Password"
+            value={password}
+            onChangeText={setPassword}
             secureTextEntry
           />
         </View>
@@ -73,7 +92,7 @@ const VendorLoginScreen = ({ navigation }) => {
 
       <View style={styles.footer}>
         <Text style={styles.footerText}>
-          Demo PIN: 1234
+          Demo: vendor1@test.com / test123
         </Text>
       </View>
     </SafeAreaView>

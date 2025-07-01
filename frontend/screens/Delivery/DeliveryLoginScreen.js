@@ -1,26 +1,37 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, SafeAreaView, Alert } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import apiService from '../../services/apiService';
 
 const DeliveryLoginScreen = ({ navigation }) => {
-  const [pin, setPin] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
   const handleLogin = async () => {
-    if (!pin || pin.length !== 4) {
-      Alert.alert('Error', 'Please enter a 4-digit PIN');
+    if (!email || !password) {
+      Alert.alert('Error', 'Please enter both email and password');
       return;
     }
     try {
       setLoading(true);
-      const response = await apiService.deliveryLogin(pin);
+      const response = await apiService.deliveryLogin({ email, password });
+      
       if (response.data.success) {
+        // Store delivery person data and token
+        const { token, deliveryPerson } = response.data.data;
+        
+        await AsyncStorage.setItem('deliveryToken', token);
+        await AsyncStorage.setItem('deliveryData', JSON.stringify(deliveryPerson));
+        
+        console.log('Delivery login successful:', deliveryPerson);
         navigation.replace('DeliveryTabs');
       } else {
-        Alert.alert('Error', 'Invalid PIN. Please try again.');
+        Alert.alert('Error', 'Invalid credentials. Please try again.');
       }
     } catch (error) {
+      console.error('Login error:', error);
       Alert.alert('Error', 'Login failed. Please try again.');
     } finally {
       setLoading(false);
@@ -32,18 +43,27 @@ const DeliveryLoginScreen = ({ navigation }) => {
       <View style={styles.header}>
         <MaterialIcons name="delivery-dining" size={80} color="#2196F3" />
         <Text style={styles.title}>Delivery Login</Text>
-        <Text style={styles.subtitle}>Enter your PIN to access delivery dashboard</Text>
+        <Text style={styles.subtitle}>Enter your credentials to access delivery dashboard</Text>
       </View>
       <View style={styles.form}>
+        <View style={styles.inputContainer}>
+          <MaterialIcons name="email" size={24} color="#666" style={styles.inputIcon} />
+          <TextInput
+            style={styles.input}
+            placeholder="Email"
+            value={email}
+            onChangeText={setEmail}
+            keyboardType="email-address"
+            autoCapitalize="none"
+          />
+        </View>
         <View style={styles.inputContainer}>
           <MaterialIcons name="lock" size={24} color="#666" style={styles.inputIcon} />
           <TextInput
             style={styles.input}
-            placeholder="Enter 4-digit PIN"
-            value={pin}
-            onChangeText={setPin}
-            keyboardType="numeric"
-            maxLength={4}
+            placeholder="Password"
+            value={password}
+            onChangeText={setPassword}
             secureTextEntry
           />
         </View>
@@ -52,7 +72,7 @@ const DeliveryLoginScreen = ({ navigation }) => {
         </TouchableOpacity>
       </View>
       <View style={styles.footer}>
-        <Text style={styles.footerText}>Demo PIN: 5678</Text>
+        <Text style={styles.footerText}>Demo: delivery@test.com / test123</Text>
       </View>
     </SafeAreaView>
   );

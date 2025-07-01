@@ -137,7 +137,7 @@ export const apiService = {
     if (userId) params.userId = userId;
     return api.get('/orders', { params });
   },
-  updateOrderStatus: (orderId, status) => api.patch(`/orders/${orderId}/status`, { status }),
+  updateOrderStatus: (orderId, status) => api.patch(`/orders/${orderId}/status`, { status: status }),
   
   // Vendor APIs
   getVendorOrders: (vendorId) => api.get(`/vendor/${vendorId}/orders`),
@@ -151,7 +151,7 @@ export const apiService = {
   
   // Delivery APIs
   getDeliveryOrders: (deliveryId) => api.get(`/delivery/${deliveryId}/orders`),
-  verifyOTP: (orderId, otp) => api.post(`/delivery/${orderId}/verify-otp`, { otp }),
+  verifyOTP: (orderId, otp) => api.post(`/orders/${orderId}/verify-otp`, { otp }),
   
   // Admin APIs
   getAllRestaurants: () => api.get('/admin/restaurants'),

@@ -209,7 +209,7 @@ router.get('/:id', async (req, res) => {
 
 // Update order status
 router.patch('/:id/status', [
-  body('status').isIn(['Order Placed', 'Accepted', 'Preparing', 'Out for Delivery', 'Delivered', 'Cancelled'])
+  body('status').isIn(['Order Placed', 'Accepted', 'Preparing', 'Ready for Delivery', 'Out for Delivery', 'Delivered', 'Cancelled'])
     .withMessage('Invalid status')
 ], async (req, res) => {
   try {

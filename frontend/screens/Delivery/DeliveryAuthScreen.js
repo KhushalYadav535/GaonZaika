@@ -11,6 +11,8 @@ import {
   Dimensions,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import apiService from '../../services/apiService';
 
 const { width } = Dimensions.get('window');
 
@@ -37,19 +39,54 @@ const DeliveryAuthScreen = ({ navigation }) => {
 
     setLoading(true);
     
-    // Simulate API call
-    setTimeout(() => {
-      setLoading(false);
+    try {
       if (isLogin) {
         // Login logic
-        Alert.alert('Success', 'Login successful!');
-        navigation.replace('DeliveryTabs');
+        const response = await apiService.deliveryLogin({ email, password });
+        
+        if (response.data.success) {
+          // Store delivery person data and token
+          const { token, deliveryPerson } = response.data.data;
+          
+          await AsyncStorage.setItem('deliveryToken', token);
+          await AsyncStorage.setItem('deliveryData', JSON.stringify(deliveryPerson));
+          
+          console.log('Delivery login successful:', deliveryPerson);
+          Alert.alert('Success', 'Login successful!');
+          navigation.replace('DeliveryTabs');
+        } else {
+          Alert.alert('Error', response.data.message || 'Login failed');
+        }
       } else {
         // Register logic
-        Alert.alert('Success', 'Registration successful!');
-        navigation.replace('DeliveryTabs');
+        const response = await apiService.deliveryRegister({
+          name,
+          email,
+          phone,
+          password,
+          vehicleNumber
+        });
+        
+        if (response.data.success) {
+          // Store delivery person data and token
+          const { token, deliveryPerson } = response.data.data;
+          
+          await AsyncStorage.setItem('deliveryToken', token);
+          await AsyncStorage.setItem('deliveryData', JSON.stringify(deliveryPerson));
+          
+          console.log('Delivery registration successful:', deliveryPerson);
+          Alert.alert('Success', 'Registration successful!');
+          navigation.replace('DeliveryTabs');
+        } else {
+          Alert.alert('Error', response.data.message || 'Registration failed');
+        }
       }
-    }, 1500);
+    } catch (error) {
+      console.error('Auth error:', error);
+      Alert.alert('Error', error.response?.data?.message || 'Authentication failed');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const toggleAuthMode = () => {

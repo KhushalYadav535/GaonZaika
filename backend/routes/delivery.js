@@ -4,65 +4,8 @@ const DeliveryPerson = require('../models/DeliveryPerson');
 const Order = require('../models/Order');
 const { body, validationResult } = require('express-validator');
 
-// Delivery person login with PIN
-router.post('/login', [
-  body('pin').isLength({ min: 4, max: 6 }).withMessage('PIN must be 4-6 digits')
-], async (req, res) => {
-  try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({
-        success: false,
-        message: 'Validation failed',
-        errors: errors.array()
-      });
-    }
-
-    const { pin } = req.body;
-    
-    // For demo purposes, use static PIN
-    const validPIN = process.env.DELIVERY_PIN || '5678';
-    
-    if (pin !== validPIN) {
-      return res.status(401).json({
-        success: false,
-        message: 'Invalid PIN'
-      });
-    }
-    
-    // Find delivery person by PIN (in production, use hashed PIN)
-    const deliveryPerson = await DeliveryPerson.findOne({ pin: pin });
-    
-    if (!deliveryPerson || !deliveryPerson.isActive) {
-      return res.status(401).json({
-        success: false,
-        message: 'Delivery person not found or inactive'
-      });
-    }
-    
-    // Update last login
-    await deliveryPerson.updateLastLogin();
-    
-    res.json({
-      success: true,
-      message: 'Login successful',
-      data: {
-        deliveryPersonId: deliveryPerson._id,
-        name: deliveryPerson.name,
-        email: deliveryPerson.email,
-        phone: deliveryPerson.phone,
-        vehicleDetails: deliveryPerson.vehicleDetails
-      }
-    });
-    
-  } catch (error) {
-    console.error('Error in delivery login:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Login failed'
-    });
-  }
-});
+// Delivery person login is now handled by authController
+// This route is removed to avoid conflicts
 
 // Get delivery person orders
 router.get('/:id/orders', async (req, res) => {

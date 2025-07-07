@@ -65,6 +65,10 @@ const customerSchema = new mongoose.Schema({
       promotions: { type: Boolean, default: true },
       newRestaurants: { type: Boolean, default: true }
     }
+  },
+  pushToken: {
+    type: String,
+    default: null
   }
 }, {
   timestamps: true

@@ -2,13 +2,13 @@ const nodemailer = require('nodemailer');
 
 // Create transporter
 const createTransporter = () => {
-  return nodemailer.createTransporter({
+  return nodemailer.createTransport({
     host: process.env.EMAIL_HOST || 'smtp.gmail.com',
     port: process.env.EMAIL_PORT || 587,
     secure: false, // true for 465, false for other ports
     auth: {
-      user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASS,
+      user: process.env.EMAIL_USER || 'gaonzaika@gmail.com',
+      pass: process.env.EMAIL_PASS || 'zxyfzrzpgzqkcqul',
     },
   });
 };
@@ -16,10 +16,12 @@ const createTransporter = () => {
 // Send OTP email
 const sendOTP = async (email, otp, orderId) => {
   try {
+    console.log('Creating email transporter...');
     const transporter = createTransporter();
+    console.log('Email transporter created successfully');
     
     const mailOptions = {
-      from: process.env.EMAIL_USER,
+      from: process.env.EMAIL_USER || 'gaonzaika@gmail.com',
       to: email,
       subject: 'Gaon Zaika - Order Delivery OTP',
       html: `
@@ -56,12 +58,23 @@ const sendOTP = async (email, otp, orderId) => {
       `
     };
     
+    console.log('Sending email with options:', {
+      from: mailOptions.from,
+      to: mailOptions.to,
+      subject: mailOptions.subject
+    });
+    
     const info = await transporter.sendMail(mailOptions);
-    console.log('OTP email sent:', info.messageId);
+    console.log('OTP email sent successfully:', info.messageId);
     return true;
     
   } catch (error) {
     console.error('Error sending OTP email:', error);
+    console.error('Error details:', {
+      message: error.message,
+      code: error.code,
+      command: error.command
+    });
     return false;
   }
 };
@@ -72,7 +85,7 @@ const sendOrderConfirmation = async (email, orderData) => {
     const transporter = createTransporter();
     
     const mailOptions = {
-      from: process.env.EMAIL_USER,
+      from: process.env.EMAIL_USER || 'gaonzaika@gmail.com',
       to: email,
       subject: 'Gaon Zaika - Order Confirmation',
       html: `
@@ -151,7 +164,7 @@ const sendOrderStatusUpdate = async (email, orderData, newStatus) => {
     };
     
     const mailOptions = {
-      from: process.env.EMAIL_USER,
+      from: process.env.EMAIL_USER || 'gaonzaika@gmail.com',
       to: email,
       subject: `Gaon Zaika - Order Status Update: ${newStatus}`,
       html: `

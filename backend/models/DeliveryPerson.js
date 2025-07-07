@@ -122,6 +122,10 @@ const deliveryPersonSchema = new mongoose.Schema({
     default: 15, // 15% commission per delivery
     min: 0,
     max: 100
+  },
+  pushToken: {
+    type: String,
+    default: null
   }
 }, {
   timestamps: true

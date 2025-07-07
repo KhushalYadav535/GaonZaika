@@ -70,6 +70,10 @@ const vendorSchema = new mongoose.Schema({
     default: 10, // 10% commission
     min: 0,
     max: 100
+  },
+  pushToken: {
+    type: String,
+    default: null
   }
 }, {
   timestamps: true

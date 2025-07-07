@@ -16,6 +16,7 @@ const orderRoutes = require('./routes/orders');
 const vendorRoutes = require('./routes/vendors');
 const deliveryRoutes = require('./routes/delivery');
 const adminRoutes = require('./routes/admin');
+const pushNotificationRoutes = require('./routes/pushNotifications');
 
 // Middleware
 app.use(helmet());
@@ -68,6 +69,7 @@ app.use('/api/orders', orderRoutes);
 app.use('/api/vendor', vendorRoutes);
 app.use('/api/delivery', deliveryRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/push-notifications', pushNotificationRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {

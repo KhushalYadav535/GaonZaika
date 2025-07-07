@@ -153,6 +153,11 @@ export const apiService = {
   getDeliveryOrders: (deliveryId) => api.get(`/delivery/${deliveryId}/orders`),
   verifyOTP: (orderId, otp) => api.post(`/orders/${orderId}/verify-otp`, { otp }),
   
+  // Delivery OTP APIs
+  generateDeliveryOTP: (orderId) => api.post(`/delivery/${orderId}/generate-otp`),
+  verifyDeliveryOTP: (orderId, otp) => api.post(`/delivery/${orderId}/verify-otp`, { otp }),
+  resendDeliveryOTP: (orderId) => api.post(`/delivery/${orderId}/resend-otp`),
+  
   // Admin APIs
   getAllRestaurants: () => api.get('/admin/restaurants'),
   getAllOrders: () => api.get('/admin/orders'),

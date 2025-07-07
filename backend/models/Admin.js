@@ -43,6 +43,10 @@ const adminSchema = new mongoose.Schema({
   phone: {
     type: String,
     trim: true
+  },
+  pushToken: {
+    type: String,
+    default: null
   }
 }, {
   timestamps: true

@@ -29,6 +29,8 @@ const VendorTabs = () => {
             iconName = 'receipt';
           } else if (route.name === 'Menu') {
             iconName = 'restaurant-menu';
+          } else if (route.name === 'ManageMenu') {
+            iconName = 'edit';
           } else if (route.name === 'Profile') {
             iconName = 'person';
           }

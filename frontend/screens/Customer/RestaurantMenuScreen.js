@@ -12,6 +12,7 @@ import {
 import { MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import apiService from '../../services/apiService';
+import { getMenuItemImageUrl } from '../../utils/imageUtils';
 
 
 
@@ -53,7 +54,7 @@ const RestaurantMenuScreen = ({ route, navigation }) => {
           description: item.description,
           price: item.price,
           category: item.category,
-          image: item.image || 'https://images.unsplash.com/photo-1565299624946-b28f40a0ca4b?w=400',
+          image: getMenuItemImageUrl(item.image),
           isVeg: item.isVeg,
           isAvailable: item.isAvailable,
         }));
@@ -159,7 +160,12 @@ const RestaurantMenuScreen = ({ route, navigation }) => {
 
     return (
       <View style={styles.menuItem}>
-        <Image source={{ uri: item.image }} style={styles.menuItemImage} />
+        <Image 
+          source={{ uri: item.image }} 
+          style={styles.menuItemImage}
+          onError={(error) => console.log('Image loading error:', error)}
+          defaultSource={{ uri: 'https://images.unsplash.com/photo-1565299624946-b28f40a0ca4b?w=400' }}
+        />
         <View style={styles.menuItemInfo}>
           <View style={styles.menuItemHeader}>
             <Text style={styles.menuItemName}>{item.name}</Text>

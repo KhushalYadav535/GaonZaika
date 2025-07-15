@@ -23,6 +23,7 @@ const VendorAuthScreen = ({ navigation }) => {
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [restaurantName, setRestaurantName] = useState('');
+  const [restaurantAddress, setRestaurantAddress] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -70,7 +71,8 @@ const VendorAuthScreen = ({ navigation }) => {
           email,
           phone,
           password,
-          restaurantName
+          restaurantName,
+          restaurantAddress
         });
         
         if (response.data.success) {
@@ -152,6 +154,19 @@ const VendorAuthScreen = ({ navigation }) => {
                 placeholder="Restaurant Name"
                 value={restaurantName}
                 onChangeText={setRestaurantName}
+                autoCapitalize="words"
+              />
+            </View>
+          )}
+
+          {!isLogin && (
+            <View style={styles.inputContainer}>
+              <MaterialIcons name="restaurant" size={20} color="#666" style={styles.inputIcon} />
+              <TextInput
+                style={styles.input}
+                placeholder="Restaurant Address"
+                value={restaurantAddress}
+                onChangeText={setRestaurantAddress}
                 autoCapitalize="words"
               />
             </View>

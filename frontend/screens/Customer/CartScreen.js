@@ -68,10 +68,10 @@ const CartScreen = ({ route, navigation }) => {
       const subtotal = cart.reduce((total, item) => total + (item.price * item.quantity), 0);
 
       const orderData = {
-        restaurantId: restaurant.id,
+        restaurantId: restaurant._id || restaurant.id, // Use _id if available
         customerId: customerId,
         items: cart.map(item => ({
-          menuItemId: item.id,
+          menuItemId: item._id || item.id, // Use _id if available
           name: item.name,
           quantity: item.quantity,
           price: item.price
@@ -80,8 +80,8 @@ const CartScreen = ({ route, navigation }) => {
         subtotal,
         totalAmount: subtotal + 20, // Including delivery fee
         deliveryFee: 20,
-        paymentMethod: 'Cash on Delivery',
-        status: 'Order Placed'
+        paymentMethod: 'Cash on Delivery'
+        // status: 'Order Placed' // REMOVE this field
       };
 
       console.log('Placing order:', orderData);

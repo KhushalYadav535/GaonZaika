@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,24 +7,53 @@ import {
   TouchableOpacity,
   SafeAreaView,
   Alert,
+  Animated,
+  Dimensions,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { LinearGradient } from 'expo-linear-gradient';
 import apiService from '../../services/apiService';
+import LoadingSpinner from '../../components/LoadingSpinner';
+import ErrorMessage from '../../components/ErrorMessage';
+
+const { width } = Dimensions.get('window');
 
 const VendorLoginScreen = ({ navigation }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [fadeAnim] = useState(new Animated.Value(0));
+  const [slideAnim] = useState(new Animated.Value(50));
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 1000,
+        useNativeDriver: true,
+      }),
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 800,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, []);
 
   const handleLogin = async () => {
     if (!email || !password) {
-      Alert.alert('Error', 'Please enter both email and password');
+      setError('Please enter both email and password');
       return;
     }
 
     try {
       setLoading(true);
+      setError('');
+      
       const response = await apiService.vendorLogin({ email, password });
       
       if (response.data.success) {
@@ -37,64 +66,133 @@ const VendorLoginScreen = ({ navigation }) => {
         console.log('Vendor login successful:', vendor);
         navigation.replace('VendorTabs');
       } else {
-        Alert.alert('Error', 'Invalid credentials. Please try again.');
+        setError('Invalid credentials. Please try again.');
       }
     } catch (error) {
       console.error('Login error:', error);
-      Alert.alert('Error', 'Login failed. Please try again.');
+      setError('Network error. Please check your connection and try again.');
     } finally {
       setLoading(false);
     }
   };
 
+  const handleRetry = () => {
+    setError('');
+    handleLogin();
+  };
+
+  if (loading) {
+    return <LoadingSpinner size={60} color="#FF6B35" />;
+  }
+
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <MaterialIcons name="restaurant" size={80} color="#FF9800" />
-        <Text style={styles.title}>Vendor Login</Text>
-        <Text style={styles.subtitle}>Enter your credentials to access your restaurant</Text>
-      </View>
-
-      <View style={styles.form}>
-        <View style={styles.inputContainer}>
-          <MaterialIcons name="email" size={24} color="#666" style={styles.inputIcon} />
-          <TextInput
-            style={styles.input}
-            placeholder="Email"
-            value={email}
-            onChangeText={setEmail}
-            keyboardType="email-address"
-            autoCapitalize="none"
-          />
-        </View>
-
-        <View style={styles.inputContainer}>
-          <MaterialIcons name="lock" size={24} color="#666" style={styles.inputIcon} />
-          <TextInput
-            style={styles.input}
-            placeholder="Password"
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry
-          />
-        </View>
-
-        <TouchableOpacity
-          style={[styles.loginButton, loading && styles.disabledButton]}
-          onPress={handleLogin}
-          disabled={loading}
+      <LinearGradient
+        colors={['#FF6B35', '#F7931E', '#FF9800']}
+        style={styles.gradient}
+      >
+        <KeyboardAvoidingView 
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.keyboardView}
         >
-          <Text style={styles.loginText}>
-            {loading ? 'Logging in...' : 'Login'}
-          </Text>
-        </TouchableOpacity>
-      </View>
+          <Animated.View 
+            style={[
+              styles.header,
+              {
+                opacity: fadeAnim,
+                transform: [{ translateY: slideAnim }]
+              }
+            ]}
+          >
+            <View style={styles.logoContainer}>
+              <MaterialIcons name="restaurant" size={80} color="white" />
+            </View>
+            <Text style={styles.title}>Gaon Zaika</Text>
+            <Text style={styles.subtitle}>Vendor Portal</Text>
+            <Text style={styles.description}>Manage your restaurant with ease</Text>
+          </Animated.View>
 
-      <View style={styles.footer}>
-        <Text style={styles.footerText}>
-          Demo: vendor1@test.com / test123
-        </Text>
-      </View>
+          <Animated.View 
+            style={[
+              styles.form,
+              {
+                opacity: fadeAnim,
+                transform: [{ translateY: slideAnim }]
+              }
+            ]}
+          >
+            {error ? (
+              <ErrorMessage
+                message={error}
+                onRetry={handleRetry}
+                onDismiss={() => setError('')}
+                type="error"
+              />
+            ) : null}
+
+            <View style={styles.inputContainer}>
+              <MaterialIcons name="email" size={24} color="#FF6B35" style={styles.inputIcon} />
+              <TextInput
+                style={styles.input}
+                placeholder="Email Address"
+                placeholderTextColor="#999"
+                value={email}
+                onChangeText={(text) => {
+                  setEmail(text);
+                  if (error) setError('');
+                }}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoCorrect={false}
+                editable={!loading}
+              />
+            </View>
+
+            <View style={styles.inputContainer}>
+              <MaterialIcons name="lock" size={24} color="#FF6B35" style={styles.inputIcon} />
+              <TextInput
+                style={styles.input}
+                placeholder="Password"
+                placeholderTextColor="#999"
+                value={password}
+                onChangeText={(text) => {
+                  setPassword(text);
+                  if (error) setError('');
+                }}
+                secureTextEntry
+                autoCorrect={false}
+                editable={!loading}
+              />
+            </View>
+
+            <TouchableOpacity
+              style={[styles.loginButton, loading && styles.disabledButton]}
+              onPress={handleLogin}
+              disabled={loading}
+              activeOpacity={0.8}
+            >
+              <LinearGradient
+                colors={loading ? ['#ccc', '#ccc'] : ['#FF6B35', '#F7931E']}
+                style={styles.buttonGradient}
+              >
+                <Text style={styles.loginText}>
+                  {loading ? 'Signing In...' : 'Sign In'}
+                </Text>
+              </LinearGradient>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.forgotPassword}>
+              <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
+            </TouchableOpacity>
+          </Animated.View>
+
+          <View style={styles.footer}>
+            <Text style={styles.footerText}>
+              Demo: vendor1@test.com / test123
+            </Text>
+          </View>
+        </KeyboardAvoidingView>
+      </LinearGradient>
     </SafeAreaView>
   );
 };
@@ -102,69 +200,109 @@ const VendorLoginScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+  },
+  gradient: {
+    flex: 1,
+  },
+  keyboardView: {
+    flex: 1,
+    justifyContent: 'center',
   },
   header: {
     alignItems: 'center',
-    paddingTop: 80,
-    paddingBottom: 60,
+    paddingTop: 40,
+    paddingBottom: 40,
+  },
+  logoContainer: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 20,
   },
   title: {
-    fontSize: 28,
+    fontSize: 32,
     fontWeight: 'bold',
-    color: '#333',
-    marginTop: 20,
+    color: 'white',
     marginBottom: 8,
+    textShadowColor: 'rgba(0, 0, 0, 0.3)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 4,
   },
   subtitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: 'rgba(255, 255, 255, 0.9)',
+    marginBottom: 8,
+  },
+  description: {
     fontSize: 16,
-    color: '#666',
+    color: 'rgba(255, 255, 255, 0.8)',
     textAlign: 'center',
     paddingHorizontal: 40,
   },
   form: {
     paddingHorizontal: 30,
+    marginTop: 20,
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'white',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    marginBottom: 24,
-    elevation: 2,
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    borderRadius: 16,
+    paddingHorizontal: 20,
+    marginBottom: 20,
+    elevation: 8,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
   },
   inputIcon: {
-    marginRight: 12,
+    marginRight: 15,
   },
   input: {
     flex: 1,
     fontSize: 18,
-    paddingVertical: 16,
+    paddingVertical: 18,
     color: '#333',
+    fontWeight: '500',
   },
   loginButton: {
-    backgroundColor: '#FF9800',
-    borderRadius: 12,
-    paddingVertical: 16,
-    alignItems: 'center',
-    elevation: 3,
+    borderRadius: 16,
+    marginTop: 10,
+    elevation: 8,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+  },
+  buttonGradient: {
+    borderRadius: 16,
+    paddingVertical: 18,
+    alignItems: 'center',
   },
   disabledButton: {
-    backgroundColor: '#ccc',
+    elevation: 2,
   },
   loginText: {
     color: 'white',
     fontSize: 18,
     fontWeight: 'bold',
+    letterSpacing: 0.5,
+  },
+  forgotPassword: {
+    alignItems: 'center',
+    marginTop: 20,
+  },
+  forgotPasswordText: {
+    color: 'rgba(255, 255, 255, 0.9)',
+    fontSize: 16,
+    fontWeight: '500',
   },
   footer: {
     position: 'absolute',
@@ -175,7 +313,11 @@ const styles = StyleSheet.create({
   },
   footerText: {
     fontSize: 14,
-    color: '#888',
+    color: 'rgba(255, 255, 255, 0.7)',
+    backgroundColor: 'rgba(0, 0, 0, 0.2)',
+    paddingHorizontal: 20,
+    paddingVertical: 8,
+    borderRadius: 20,
   },
 });
 

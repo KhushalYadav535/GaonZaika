@@ -14,6 +14,8 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { useVendor } from '../../hooks/useVendor';
 import BusinessHoursModal from './BusinessHoursModal';
 import RestaurantLocationModal from './RestaurantLocationModal';
+import apiService from '../../services/apiService';
+import { formatCoordinates } from '../../services/locationService';
 
 const VendorProfileScreen = ({ navigation }) => {
   const { vendorData, vendorName, vendorEmail, vendorPhone, restaurant, clearVendorData, loading: vendorLoading } = useVendor();
@@ -21,6 +23,7 @@ const VendorProfileScreen = ({ navigation }) => {
   const [editRestaurantVisible, setEditRestaurantVisible] = useState(false);
   const [editHoursVisible, setEditHoursVisible] = useState(false);
   const [editLocationVisible, setEditLocationVisible] = useState(false);
+  const [savingLocation, setSavingLocation] = useState(false);
   const [profile, setProfile] = useState({
     name: vendorName || 'Vendor Name',
     email: vendorEmail || 'vendor@example.com',
@@ -71,6 +74,39 @@ const VendorProfileScreen = ({ navigation }) => {
   const [contactVisible, setContactVisible] = useState(false);
   const [contactSubject, setContactSubject] = useState('');
   const [contactMessage, setContactMessage] = useState('');
+
+  const handleSaveLocation = async (locationData) => {
+    try {
+      setSavingLocation(true);
+      
+      if (!vendorData?.id) {
+        Alert.alert('Error', 'Vendor data not found');
+        return;
+      }
+
+      const response = await apiService.updateVendorRestaurantLocation(vendorData.id, locationData);
+      
+      if (response.data.success) {
+        Alert.alert('Success', 'Restaurant location updated successfully!');
+        // You might want to refresh the vendor data here
+      } else {
+        Alert.alert('Error', response.data.message || 'Failed to update location');
+      }
+    } catch (error) {
+      console.error('Error saving location:', error);
+      Alert.alert('Error', 'Failed to save location. Please try again.');
+    } finally {
+      setSavingLocation(false);
+    }
+  };
+
+  const getLocationDisplay = () => {
+    if (restaurant?.location?.coordinates && restaurant.location.coordinates.length === 2) {
+      const [lng, lat] = restaurant.location.coordinates;
+      return formatCoordinates(lat, lng);
+    }
+    return restaurant?.address?.fullAddress || 'Location not set';
+  };
 
   if (vendorLoading) {
     return (
@@ -127,6 +163,28 @@ const VendorProfileScreen = ({ navigation }) => {
             <Text style={styles.menuText}>Restaurant Location</Text>
             <MaterialIcons name="chevron-right" size={24} color="#666" />
           </TouchableOpacity>
+        </View>
+
+        {/* Current Location Display */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Current Location</Text>
+          <View style={styles.locationDisplay}>
+            <MaterialIcons name="location-on" size={20} color="#FF9800" />
+            <View style={styles.locationInfo}>
+              <Text style={styles.locationText}>{getLocationDisplay()}</Text>
+              {restaurant?.address?.fullAddress && (
+                <Text style={styles.addressText}>{restaurant.address.fullAddress}</Text>
+              )}
+            </View>
+          </View>
+          {restaurant?.location?.coordinates && restaurant.location.coordinates.length === 2 && (
+            <View style={styles.coordinatesDisplay}>
+              <MaterialIcons name="gps-fixed" size={16} color="#666" />
+              <Text style={styles.coordinatesText}>
+                Coordinates: {getLocationDisplay()}
+              </Text>
+            </View>
+          )}
         </View>
 
         <View style={styles.section}>
@@ -283,8 +341,8 @@ const VendorProfileScreen = ({ navigation }) => {
       <RestaurantLocationModal
         visible={editLocationVisible}
         onClose={() => setEditLocationVisible(false)}
-        location={restaurant?.location || ''}
-        onSave={(location) => setRestaurant({ ...(restaurant || {}), location })}
+        onSave={handleSaveLocation}
+        vendorId={vendorData?.id}
       />
 
       {/* Security Settings Modal */}
@@ -544,6 +602,39 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     color: 'white',
+  },
+  locationDisplay: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  locationInfo: {
+    marginLeft: 10,
+  },
+  locationText: {
+    fontSize: 16,
+    color: '#333',
+    fontWeight: '600',
+  },
+  addressText: {
+    fontSize: 14,
+    color: '#666',
+    marginTop: 4,
+  },
+  coordinatesDisplay: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 10,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  coordinatesText: {
+    fontSize: 14,
+    color: '#666',
+    marginLeft: 10,
   },
 });
 

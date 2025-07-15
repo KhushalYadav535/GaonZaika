@@ -1,8 +1,9 @@
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import CONFIG from '../config/constants';
 
 // Base URL for the API - using computer IP for Expo Go compatibility
-const BASE_URL = 'http://192.168.1.3:3000/api';
+const BASE_URL = `${CONFIG.API_BASE_URL}/api`;
 
 // Create axios instance for API calls
 const api = axios.create({
@@ -15,7 +16,7 @@ const api = axios.create({
 
 // Create axios instance for health check (without /api prefix)
 const healthApi = axios.create({
-  baseURL: 'http://192.168.1.3:3000',
+  baseURL: CONFIG.API_BASE_URL,
   timeout: 10000,
   headers: {
     'Content-Type': 'application/json',
@@ -128,6 +129,11 @@ export const apiService = {
   
   // Restaurant APIs
   getRestaurants: () => api.get('/restaurants'),
+  getNearbyRestaurants: (latitude, longitude, radius = 10, filters = {}) => {
+    const params = { latitude, longitude, radius, ...filters };
+    console.log('getNearbyRestaurants called with params:', params);
+    return api.get('/restaurants/nearby', { params });
+  },
   getRestaurantMenu: (restaurantId) => api.get(`/restaurants/${restaurantId}/menu`),
   
   // Order APIs
@@ -145,9 +151,57 @@ export const apiService = {
   getVendorDashboard: (vendorId) => api.get(`/vendor/${vendorId}/dashboard`),
   getVendorProfile: (vendorId) => api.get(`/vendor/${vendorId}/profile`),
   updateVendorProfile: (vendorId, profileData) => api.put(`/vendor/${vendorId}/profile`, profileData),
-  addVendorMenuItem: (vendorId, menuItemData) => api.post(`/vendor/${vendorId}/menu`, menuItemData),
-  updateVendorMenuItem: (vendorId, menuItemId, menuItemData) => api.put(`/vendor/${vendorId}/menu/${menuItemId}`, menuItemData),
+  addVendorMenuItem: (vendorId, menuItemData, imageFile = null) => {
+    const formData = new FormData();
+    
+    // Add image if provided
+    if (imageFile) {
+      formData.append('image', {
+        uri: imageFile.uri,
+        type: imageFile.type || 'image/jpeg',
+        name: imageFile.name || 'menu-item.jpg'
+      });
+    }
+    
+    // Add other menu item data
+    Object.keys(menuItemData).forEach(key => {
+      formData.append(key, menuItemData[key]);
+    });
+    
+    return api.post(`/vendor/${vendorId}/menu`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+  },
+  updateVendorMenuItem: (vendorId, menuItemId, menuItemData, imageFile = null) => {
+    const formData = new FormData();
+    
+    // Add image if provided
+    if (imageFile) {
+      formData.append('image', {
+        uri: imageFile.uri,
+        type: imageFile.type || 'image/jpeg',
+        name: imageFile.name || 'menu-item.jpg'
+      });
+    }
+    
+    // Add other menu item data
+    Object.keys(menuItemData).forEach(key => {
+      formData.append(key, menuItemData[key]);
+    });
+    
+    return api.put(`/vendor/${vendorId}/menu/${menuItemId}`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+  },
   deleteVendorMenuItem: (vendorId, menuItemId) => api.delete(`/vendor/${vendorId}/menu/${menuItemId}`),
+  
+  // Vendor Restaurant Location APIs
+  getVendorRestaurantLocation: (vendorId) => api.get(`/vendor/${vendorId}/restaurant/location`),
+  updateVendorRestaurantLocation: (vendorId, locationData) => api.put(`/vendor/${vendorId}/restaurant/location`, locationData),
   
   // Delivery APIs
   getDeliveryOrders: (deliveryId) => api.get(`/delivery/${deliveryId}/orders`),

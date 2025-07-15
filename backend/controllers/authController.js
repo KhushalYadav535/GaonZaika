@@ -154,7 +154,7 @@ exports.registerVendor = async (req, res) => {
       });
     }
 
-    const { name, phone, email, password, restaurantName } = req.body;
+    const { name, phone, email, password, restaurantName, restaurantAddress } = req.body;
 
     // Check if vendor already exists
     const existingVendor = await Vendor.findOne({
@@ -197,6 +197,18 @@ exports.registerVendor = async (req, res) => {
       contact: {
         phone: phone, // Use vendor's phone number
         email: email  // Use vendor's email
+      },
+      address: {
+        fullAddress: restaurantAddress || 'Address to be set',
+        street: '',
+        city: '',
+        state: '',
+        pincode: ''
+      },
+      // Set default location (vendor can update later)
+      location: {
+        type: 'Point',
+        coordinates: [0, 0] // Default coordinates, vendor should update
       }
     });
 

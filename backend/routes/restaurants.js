@@ -1,7 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const Restaurant = require('../models/Restaurant');
-const { body, validationResult } = require('express-validator');
+const { body, query, validationResult } = require('express-validator');
+const { calculateDistance, formatDistance, calculateDeliveryTime, calculateDeliveryFee } = require('../utils/distanceUtils');
 
 // Get all restaurants
 router.get('/', async (req, res) => {
@@ -41,6 +42,133 @@ router.get('/', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to fetch restaurants'
+    });
+  }
+});
+
+// Get restaurants by location (new endpoint)
+router.get('/nearby', [
+  query('latitude').custom((value) => {
+    const num = parseFloat(value);
+    if (isNaN(num)) {
+      throw new Error('Valid latitude is required');
+    }
+    return true;
+  }),
+  query('longitude').custom((value) => {
+    const num = parseFloat(value);
+    if (isNaN(num)) {
+      throw new Error('Valid longitude is required');
+    }
+    return true;
+  })
+], async (req, res) => {
+  try {
+    console.log('Nearby endpoint called with query params:', req.query);
+    
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      console.log('Validation errors:', errors.array());
+      return res.status(400).json({
+        success: false,
+        message: 'Validation failed',
+        errors: errors.array()
+      });
+    }
+
+    const { 
+      latitude, 
+      longitude, 
+      radius = 10, // Default 10km radius
+      search, 
+      cuisine, 
+      isOpen,
+      limit = 50 
+    } = req.query;
+
+    console.log('Parsed parameters:', { latitude, longitude, radius, search, cuisine, isOpen, limit });
+
+    const filters = {};
+    if (search) filters.search = search;
+    if (cuisine) filters.cuisine = cuisine;
+    if (isOpen !== undefined) filters.isOpen = isOpen === 'true';
+
+    // Convert radius from km to meters for MongoDB geospatial query
+    const maxDistance = parseFloat(radius) * 1000;
+
+    console.log('Calling findNearbyWithFilters with:', { 
+      longitude: parseFloat(longitude), 
+      latitude: parseFloat(latitude), 
+      maxDistance, 
+      filters 
+    });
+
+    const restaurants = await Restaurant.findNearbyWithFilters(
+      parseFloat(longitude), 
+      parseFloat(latitude), 
+      maxDistance, 
+      filters
+    )
+    .select('name cuisine rating deliveryTime minOrder image isOpen totalRatings location address')
+    .limit(parseInt(limit))
+    .sort({ rating: -1, totalRatings: -1 });
+
+    console.log('Found restaurants:', restaurants.length);
+
+    // Calculate distance and add delivery info for each restaurant
+    const restaurantsWithDistance = restaurants.map(restaurant => {
+      const [restLon, restLat] = restaurant.location.coordinates;
+      const distance = calculateDistance(
+        parseFloat(latitude), 
+        parseFloat(longitude), 
+        restLat, 
+        restLon
+      );
+
+      // Calculate dynamic delivery time and fee based on distance
+      const estimatedDeliveryTime = calculateDeliveryTime(distance, restaurant.deliveryTime.min);
+      const deliveryFee = calculateDeliveryFee(distance, restaurant.deliveryFee);
+
+      return {
+        id: restaurant._id,
+        name: restaurant.name,
+        cuisine: restaurant.cuisine,
+        rating: restaurant.rating || 0,
+        deliveryTime: `${restaurant.deliveryTime.min}-${restaurant.deliveryTime.max} min`,
+        estimatedDeliveryTime: `${estimatedDeliveryTime} min`,
+        minOrder: restaurant.minOrder || 100,
+        deliveryFee: deliveryFee,
+        image: restaurant.image || 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=400',
+        isOpen: restaurant.isOpen || false,
+        distance: formatDistance(distance),
+        distanceKm: distance,
+        address: restaurant.address.fullAddress || restaurant.address.street,
+        totalRatings: restaurant.totalRatings || 0
+      };
+    });
+
+    // Sort by distance first, then by rating
+    restaurantsWithDistance.sort((a, b) => {
+      if (a.distanceKm !== b.distanceKm) {
+        return a.distanceKm - b.distanceKm;
+      }
+      return b.rating - a.rating;
+    });
+
+    res.json({
+      success: true,
+      data: restaurantsWithDistance,
+      meta: {
+        customerLocation: { latitude: parseFloat(latitude), longitude: parseFloat(longitude) },
+        searchRadius: parseFloat(radius),
+        totalFound: restaurantsWithDistance.length
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching nearby restaurants:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch nearby restaurants'
     });
   }
 });

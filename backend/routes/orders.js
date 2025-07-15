@@ -7,6 +7,7 @@ const { body, validationResult } = require('express-validator');
 const sendOTP = require('../utils/emailService');
 const Customer = require('../models/Customer');
 const mongoose = require('mongoose');
+const pushNotificationService = require('../services/pushNotificationService');
 
 // Validation middleware
 const validateOrder = [
@@ -111,6 +112,26 @@ router.post('/', validateOrder, async (req, res) => {
       } catch (emailError) {
         console.error('Failed to send OTP email:', emailError);
       }
+    }
+
+    // Send push notification to vendor about new order
+    try {
+      // Find vendor by restaurant
+      const vendor = await Restaurant.findById(restaurantId).populate('vendorId');
+      
+      if (vendor && vendor.vendorId && vendor.vendorId.pushToken) {
+        await pushNotificationService.sendNewOrderToVendor(
+          vendor.vendorId.pushToken,
+          order.orderId,
+          customerInfo.name,
+          totalAmount
+        );
+        
+        console.log(`Push notification sent to vendor for new order ${order.orderId}`);
+      }
+    } catch (notificationError) {
+      console.error('Error sending push notification to vendor:', notificationError);
+      // Don't fail the request if notification fails
     }
 
     res.status(201).json({
@@ -232,6 +253,9 @@ router.patch('/:id/status', [
       });
     }
     
+    // Store old status for comparison
+    const oldStatus = order.status;
+    
     // Update order status
     await order.updateStatus(status);
     
@@ -245,6 +269,33 @@ router.patch('/:id/status', [
       if (availableDeliveryPerson) {
         order.deliveryPersonId = availableDeliveryPerson._id;
         await order.save();
+      }
+    }
+    
+    // Send push notification to customer if status changed and customer has push token
+    if (oldStatus !== status && order.customerInfo && order.customerInfo.email) {
+      try {
+        // Find customer by email to get push token
+        const customer = await Customer.findOne({ email: order.customerInfo.email });
+        
+        if (customer && customer.pushToken) {
+          // Get restaurant name for notification
+          const restaurant = await Restaurant.findById(order.restaurantId);
+          const restaurantName = restaurant ? restaurant.name : 'Restaurant';
+          
+          // Send order status update notification
+          await pushNotificationService.sendOrderStatusUpdate(
+            customer.pushToken,
+            order.orderId,
+            status,
+            restaurantName
+          );
+          
+          console.log(`Push notification sent for order ${order.orderId} status change to ${status}`);
+        }
+      } catch (notificationError) {
+        console.error('Error sending push notification:', notificationError);
+        // Don't fail the request if notification fails
       }
     }
     
@@ -311,6 +362,30 @@ router.post('/:id/verify-otp', [
         const commission = (order.totalAmount * deliveryPerson.commission) / 100;
         await deliveryPerson.addEarnings(commission);
         await deliveryPerson.updateDeliveryStats('Delivered');
+      }
+    }
+
+    // Send push notification to customer about delivery completion
+    if (order.customerInfo && order.customerInfo.email) {
+      try {
+        const customer = await Customer.findOne({ email: order.customerInfo.email });
+        
+        if (customer && customer.pushToken) {
+          const restaurant = await Restaurant.findById(order.restaurantId);
+          const restaurantName = restaurant ? restaurant.name : 'Restaurant';
+          
+          await pushNotificationService.sendOrderStatusUpdate(
+            customer.pushToken,
+            order.orderId,
+            'Delivered',
+            restaurantName
+          );
+          
+          console.log(`Push notification sent for order ${order.orderId} delivery completion`);
+        }
+      } catch (notificationError) {
+        console.error('Error sending delivery completion notification:', notificationError);
+        // Don't fail the request if notification fails
       }
     }
     

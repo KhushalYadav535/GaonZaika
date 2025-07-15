@@ -6,6 +6,8 @@ const Order = require('../models/Order');
 const { body, validationResult } = require('express-validator');
 const MenuItem = require('../models/Restaurant'); // Menu is embedded in Restaurant
 const { verifyToken, getUser, requireVendor } = require('../middleware/auth');
+const { uploadImage } = require('../middleware/uploadMiddleware');
+const { deleteImage } = require('../config/cloudinary');
 
 // Vendor login with PIN
 router.post('/login', [
@@ -337,60 +339,473 @@ router.get('/:id/menu', async (req, res) => {
   }
 });
 
-// Add menu item (Vendor)
-router.post('/:vendorId/menu', verifyToken, getUser, requireVendor, async (req, res) => {
+
+
+
+
+// Update restaurant location
+router.put('/:id/restaurant/location', [
+  body('latitude').isFloat({ min: -90, max: 90 }).withMessage('Valid latitude is required'),
+  body('longitude').isFloat({ min: -180, max: 180 }).withMessage('Valid longitude is required'),
+  body('address').optional().isString().withMessage('Address must be a string'),
+  body('street').optional().isString().withMessage('Street must be a string'),
+  body('city').optional().isString().withMessage('City must be a string'),
+  body('state').optional().isString().withMessage('State must be a string'),
+  body('pincode').optional().isString().withMessage('Pincode must be a string')
+], async (req, res) => {
   try {
-    const { vendorId } = req.params;
-    const { name, description, price, category, isVeg, image } = req.body;
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Validation failed',
+        errors: errors.array()
+      });
+    }
+
+    const vendorId = req.params.id;
+    const { latitude, longitude, address, street, city, state, pincode } = req.body;
+
+    // Find vendor and their restaurant
     const vendor = await Vendor.findById(vendorId);
-    if (!vendor) return res.status(404).json({ success: false, message: 'Vendor not found' });
+    if (!vendor) {
+      return res.status(404).json({
+        success: false,
+        message: 'Vendor not found'
+      });
+    }
+
     const restaurant = await Restaurant.findById(vendor.restaurantId);
-    if (!restaurant) return res.status(404).json({ success: false, message: 'Restaurant not found' });
-    const menuItem = {
-      name, description, price, category, isVeg, image, isAvailable: true, preparationTime: 20
+    if (!restaurant) {
+      return res.status(404).json({
+        success: false,
+        message: 'Restaurant not found'
+      });
+    }
+
+    // Update restaurant location coordinates
+    restaurant.location = {
+      type: 'Point',
+      coordinates: [parseFloat(longitude), parseFloat(latitude)] // MongoDB expects [longitude, latitude]
     };
-    restaurant.menu.push(menuItem);
+
+    // Update address information if provided
+    if (address || street || city || state || pincode) {
+      restaurant.address = {
+        ...restaurant.address,
+        ...(street && { street }),
+        ...(city && { city }),
+        ...(state && { state }),
+        ...(pincode && { pincode }),
+        fullAddress: address || `${street || ''}, ${city || ''}, ${state || ''} - ${pincode || ''}`.trim()
+      };
+    }
+
     await restaurant.save();
-    res.status(201).json({ success: true, message: 'Menu item added', data: menuItem });
+
+    console.log(`Updated restaurant ${restaurant.name} location: ${latitude}, ${longitude}`);
+
+    res.json({
+      success: true,
+      message: 'Restaurant location updated successfully',
+      data: {
+        restaurant: {
+          id: restaurant._id,
+          name: restaurant.name,
+          location: restaurant.location,
+          address: restaurant.address
+        }
+      }
+    });
+
   } catch (error) {
-    console.error('Add menu item error:', error);
-    res.status(500).json({ success: false, message: 'Failed to add menu item' });
+    console.error('Error updating restaurant location:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update restaurant location'
+    });
   }
 });
 
-// Update menu item (Vendor)
-router.put('/:vendorId/menu/:menuItemId', verifyToken, getUser, requireVendor, async (req, res) => {
+// Get restaurant location
+router.get('/:id/restaurant/location', async (req, res) => {
   try {
-    const { vendorId, menuItemId } = req.params;
+    const vendorId = req.params.id;
+
+    // Find vendor and their restaurant
     const vendor = await Vendor.findById(vendorId);
-    if (!vendor) return res.status(404).json({ success: false, message: 'Vendor not found' });
+    if (!vendor) {
+      return res.status(404).json({
+        success: false,
+        message: 'Vendor not found'
+      });
+    }
+
     const restaurant = await Restaurant.findById(vendor.restaurantId);
-    if (!restaurant) return res.status(404).json({ success: false, message: 'Restaurant not found' });
-    const menuItem = restaurant.menu.id(menuItemId);
-    if (!menuItem) return res.status(404).json({ success: false, message: 'Menu item not found' });
-    Object.assign(menuItem, req.body);
-    await restaurant.save();
-    res.json({ success: true, message: 'Menu item updated', data: menuItem });
+    if (!restaurant) {
+      return res.status(404).json({
+        success: false,
+        message: 'Restaurant not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      data: {
+        restaurant: {
+          id: restaurant._id,
+          name: restaurant.name,
+          location: restaurant.location,
+          address: restaurant.address
+        }
+      }
+    });
+
   } catch (error) {
-    console.error('Update menu item error:', error);
-    res.status(500).json({ success: false, message: 'Failed to update menu item' });
+    console.error('Error fetching restaurant location:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch restaurant location'
+    });
   }
 });
 
-// Delete menu item (Vendor)
-router.delete('/:vendorId/menu/:menuItemId', verifyToken, getUser, requireVendor, async (req, res) => {
+// Menu Item Management with Image Upload
+
+// Add menu item with image
+router.post('/:vendorId/menu', verifyToken, getUser, requireVendor, uploadImage, async (req, res) => {
   try {
-    const { vendorId, menuItemId } = req.params;
+    console.log('=== ADD MENU ITEM ROUTE HIT ===');
+    console.log('Vendor ID:', req.params.vendorId);
+    console.log('BODY:', req.body);
+    console.log('BODY TYPE:', typeof req.body);
+    console.log('BODY KEYS:', Object.keys(req.body));
+    console.log('IMAGE INFO:', req.imageInfo);
+    console.log('FILE:', req.file);
+
+    // Manual validation for multipart/form-data
+    const validationErrors = [];
+    
+    if (!req.body.name || !req.body.name.trim()) {
+      validationErrors.push({ field: 'name', message: 'Item name is required' });
+    }
+    
+    if (!req.body.description || !req.body.description.trim()) {
+      validationErrors.push({ field: 'description', message: 'Description is required' });
+    }
+    
+    if (!req.body.price || isNaN(parseFloat(req.body.price)) || parseFloat(req.body.price) <= 0) {
+      validationErrors.push({ field: 'price', message: 'Valid price is required' });
+    }
+    
+    const validCategories = ['Starters', 'Main Course', 'Desserts', 'Beverages', 'Breads'];
+    if (!req.body.category || !validCategories.includes(req.body.category)) {
+      validationErrors.push({ field: 'category', message: 'Valid category is required' });
+    }
+    
+    if (validationErrors.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Validation failed',
+        errors: validationErrors
+      });
+    }
+
+    const vendorId = req.params.vendorId;
+    // Convert all fields from string to correct type
+    const name = req.body.name;
+    const description = req.body.description;
+    const price = parseFloat(req.body.price);
+    const category = req.body.category;
+    const isVeg = req.body.isVeg === 'true' || req.body.isVeg === true;
+    const isAvailable = req.body.isAvailable === 'true' || req.body.isAvailable === true;
+    const preparationTime = req.body.preparationTime ? parseInt(req.body.preparationTime) : 15;
+
+    // Find vendor and their restaurant
     const vendor = await Vendor.findById(vendorId);
-    if (!vendor) return res.status(404).json({ success: false, message: 'Vendor not found' });
+    if (!vendor) {
+      return res.status(404).json({
+        success: false,
+        message: 'Vendor not found'
+      });
+    }
+
     const restaurant = await Restaurant.findById(vendor.restaurantId);
-    if (!restaurant) return res.status(404).json({ success: false, message: 'Restaurant not found' });
-    restaurant.menu = restaurant.menu.filter(item => item._id.toString() !== menuItemId);
+    if (!restaurant) {
+      return res.status(404).json({
+        success: false,
+        message: 'Restaurant not found'
+      });
+    }
+
+    // Create new menu item with image
+    const newMenuItem = {
+      name,
+      description,
+      price,
+      category,
+      isVeg,
+      isAvailable,
+      preparationTime,
+      image: req.imageInfo ? {
+        url: req.imageInfo.url,
+        publicId: req.imageInfo.publicId
+      } : { url: null, publicId: null }
+    };
+
+    // Add to restaurant menu
+    restaurant.menu.push(newMenuItem);
     await restaurant.save();
-    res.json({ success: true, message: 'Menu item deleted' });
+
+    const addedItem = restaurant.menu[restaurant.menu.length - 1];
+
+    res.status(201).json({
+      success: true,
+      message: 'Menu item added successfully',
+      data: {
+        menuItem: {
+          id: addedItem._id,
+          name: addedItem.name,
+          description: addedItem.description,
+          price: addedItem.price,
+          category: addedItem.category,
+          image: addedItem.image,
+          isVeg: addedItem.isVeg,
+          isAvailable: addedItem.isAvailable,
+          preparationTime: addedItem.preparationTime
+        }
+      }
+    });
+
   } catch (error) {
-    console.error('Delete menu item error:', error);
-    res.status(500).json({ success: false, message: 'Failed to delete menu item' });
+    console.error('Error adding menu item:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to add menu item'
+    });
+  }
+});
+
+// Update menu item with image
+router.put('/:id/menu/:itemId', verifyToken, getUser, requireVendor, uploadImage, async (req, res) => {
+  try {
+    // Manual validation for multipart/form-data (optional fields for update)
+    const validationErrors = [];
+    
+    if (req.body.name !== undefined && (!req.body.name || !req.body.name.trim())) {
+      validationErrors.push({ field: 'name', message: 'Item name cannot be empty' });
+    }
+    
+    if (req.body.description !== undefined && (!req.body.description || !req.body.description.trim())) {
+      validationErrors.push({ field: 'description', message: 'Description cannot be empty' });
+    }
+    
+    if (req.body.price !== undefined && (isNaN(parseFloat(req.body.price)) || parseFloat(req.body.price) <= 0)) {
+      validationErrors.push({ field: 'price', message: 'Valid price is required' });
+    }
+    
+    const validCategories = ['Starters', 'Main Course', 'Desserts', 'Beverages', 'Breads'];
+    if (req.body.category !== undefined && (!req.body.category || !validCategories.includes(req.body.category))) {
+      validationErrors.push({ field: 'category', message: 'Valid category is required' });
+    }
+    
+    if (validationErrors.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Validation failed',
+        errors: validationErrors
+      });
+    }
+
+    const vendorId = req.params.vendorId;
+    const itemId = req.params.itemId;
+    const updateData = req.body;
+
+    // Find vendor and their restaurant
+    const vendor = await Vendor.findById(vendorId);
+    if (!vendor) {
+      return res.status(404).json({
+        success: false,
+        message: 'Vendor not found'
+      });
+    }
+
+    const restaurant = await Restaurant.findById(vendor.restaurantId);
+    if (!restaurant) {
+      return res.status(404).json({
+        success: false,
+        message: 'Restaurant not found'
+      });
+    }
+
+    // Find the menu item
+    const menuItem = restaurant.menu.id(itemId);
+    if (!menuItem) {
+      return res.status(404).json({
+        success: false,
+        message: 'Menu item not found'
+      });
+    }
+
+    // Delete old image if new image is uploaded
+    if (req.imageInfo && menuItem.image && menuItem.image.publicId) {
+      try {
+        await deleteImage(menuItem.image.publicId);
+      } catch (error) {
+        console.error('Error deleting old image:', error);
+      }
+    }
+
+    // Update menu item
+    if (updateData.name) menuItem.name = updateData.name;
+    if (updateData.description) menuItem.description = updateData.description;
+    if (updateData.price) menuItem.price = parseFloat(updateData.price);
+    if (updateData.category) menuItem.category = updateData.category;
+    if (updateData.isVeg !== undefined) menuItem.isVeg = updateData.isVeg === 'true' || updateData.isVeg === true;
+    if (updateData.isAvailable !== undefined) menuItem.isAvailable = updateData.isAvailable === 'true' || updateData.isAvailable === true;
+    if (updateData.preparationTime) menuItem.preparationTime = parseInt(updateData.preparationTime);
+
+    // Update image if new one is uploaded
+    if (req.imageInfo) {
+      menuItem.image = {
+        url: req.imageInfo.url,
+        publicId: req.imageInfo.publicId
+      };
+    }
+
+    await restaurant.save();
+
+    res.json({
+      success: true,
+      message: 'Menu item updated successfully',
+      data: {
+        menuItem: {
+          id: menuItem._id,
+          name: menuItem.name,
+          description: menuItem.description,
+          price: menuItem.price,
+          category: menuItem.category,
+          image: menuItem.image,
+          isVeg: menuItem.isVeg,
+          isAvailable: menuItem.isAvailable,
+          preparationTime: menuItem.preparationTime
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('Error updating menu item:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update menu item'
+    });
+  }
+});
+
+// Delete menu item
+router.delete('/:vendorId/menu/:itemId', verifyToken, getUser, requireVendor, async (req, res) => {
+  try {
+    const vendorId = req.params.vendorId;
+    const itemId = req.params.itemId;
+
+    // Find vendor and their restaurant
+    const vendor = await Vendor.findById(vendorId);
+    if (!vendor) {
+      return res.status(404).json({
+        success: false,
+        message: 'Vendor not found'
+      });
+    }
+
+    const restaurant = await Restaurant.findById(vendor.restaurantId);
+    if (!restaurant) {
+      return res.status(404).json({
+        success: false,
+        message: 'Restaurant not found'
+      });
+    }
+
+    // Find the menu item
+    const menuItem = restaurant.menu.id(itemId);
+    if (!menuItem) {
+      return res.status(404).json({
+        success: false,
+        message: 'Menu item not found'
+      });
+    }
+
+    // Delete image from cloudinary if exists
+    if (menuItem.image && menuItem.image.publicId) {
+      try {
+        await deleteImage(menuItem.image.publicId);
+      } catch (error) {
+        console.error('Error deleting image:', error);
+      }
+    }
+
+    // Remove menu item
+    restaurant.menu.pull(itemId);
+    await restaurant.save();
+
+    res.json({
+      success: true,
+      message: 'Menu item deleted successfully'
+    });
+
+  } catch (error) {
+    console.error('Error deleting menu item:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to delete menu item'
+    });
+  }
+});
+
+// Get vendor menu
+router.get('/:id/menu', async (req, res) => {
+  try {
+    const vendorId = req.params.id;
+
+    // Find vendor and their restaurant
+    const vendor = await Vendor.findById(vendorId);
+    if (!vendor) {
+      return res.status(404).json({
+        success: false,
+        message: 'Vendor not found'
+      });
+    }
+
+    const restaurant = await Restaurant.findById(vendor.restaurantId);
+    if (!restaurant) {
+      return res.status(404).json({
+        success: false,
+        message: 'Restaurant not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      data: {
+        menu: restaurant.menu.map(item => ({
+          id: item._id,
+          name: item.name,
+          description: item.description,
+          price: item.price,
+          category: item.category,
+          image: item.image,
+          isVeg: item.isVeg,
+          isAvailable: item.isAvailable,
+          preparationTime: item.preparationTime
+        }))
+      }
+    });
+
+  } catch (error) {
+    console.error('Error fetching vendor menu:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch menu'
+    });
   }
 });
 

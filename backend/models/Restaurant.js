@@ -22,8 +22,14 @@ const menuItemSchema = new mongoose.Schema({
     enum: ['Starters', 'Main Course', 'Desserts', 'Beverages', 'Breads']
   },
   image: {
-    type: String,
-    default: null
+    url: {
+      type: String,
+      default: null
+    },
+    publicId: {
+      type: String,
+      default: null
+    }
   },
   isVeg: {
     type: Boolean,
@@ -60,6 +66,18 @@ const restaurantSchema = new mongoose.Schema({
     state: String,
     pincode: String,
     fullAddress: String
+  },
+  // Location coordinates for distance calculation
+  location: {
+    type: {
+      type: String,
+      enum: ['Point'],
+      default: 'Point'
+    },
+    coordinates: {
+      type: [Number], // [longitude, latitude]
+      default: [0, 0]
+    }
   },
   contact: {
     phone: {
@@ -131,6 +149,8 @@ const restaurantSchema = new mongoose.Schema({
 restaurantSchema.index({ name: 'text', cuisine: 'text' });
 restaurantSchema.index({ isOpen: 1, isActive: 1 });
 restaurantSchema.index({ vendorId: 1 });
+// Geospatial index for location-based queries
+restaurantSchema.index({ location: '2dsphere' });
 
 // Virtual for formatted delivery time
 restaurantSchema.virtual('deliveryTimeFormatted').get(function() {
@@ -145,9 +165,65 @@ restaurantSchema.methods.updateRating = function(newRating) {
   return this.save();
 };
 
+// Method to update location coordinates
+restaurantSchema.methods.updateLocation = function(latitude, longitude) {
+  this.location.coordinates = [longitude, latitude];
+  return this.save();
+};
+
 // Static method to find open restaurants
 restaurantSchema.statics.findOpen = function() {
   return this.find({ isOpen: true, isActive: true });
+};
+
+// Static method to find restaurants within a certain distance
+restaurantSchema.statics.findNearby = function(longitude, latitude, maxDistance = 10000) {
+  return this.find({
+    isActive: true,
+    location: {
+      $near: {
+        $geometry: {
+          type: 'Point',
+          coordinates: [longitude, latitude]
+        },
+        $maxDistance: maxDistance // in meters
+      }
+    }
+  });
+};
+
+// Static method to find restaurants within distance and apply filters
+restaurantSchema.statics.findNearbyWithFilters = function(longitude, latitude, maxDistance = 10000, filters = {}) {
+  const query = {
+    isActive: true,
+    location: {
+      $near: {
+        $geometry: {
+          type: 'Point',
+          coordinates: [longitude, latitude]
+        },
+        $maxDistance: maxDistance
+      }
+    }
+  };
+
+  // Apply additional filters
+  if (filters.isOpen !== undefined) {
+    query.isOpen = filters.isOpen;
+  }
+  
+  if (filters.cuisine) {
+    query.cuisine = { $regex: filters.cuisine, $options: 'i' };
+  }
+  
+  if (filters.search) {
+    query.$or = [
+      { name: { $regex: filters.search, $options: 'i' } },
+      { cuisine: { $regex: filters.search, $options: 'i' } }
+    ];
+  }
+
+  return this.find(query);
 };
 
 // Pre-save middleware to ensure full address is set

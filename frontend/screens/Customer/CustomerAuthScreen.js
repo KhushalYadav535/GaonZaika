@@ -89,15 +89,45 @@ const CustomerAuthScreen = ({ navigation }) => {
           await AsyncStorage.setItem('customerToken', response.data.data.token);
           
           console.log('Customer data stored:', customerData);
-          Alert.alert('Success', 'Registration successful!');
-          navigation.replace('CustomerTabs');
+          Alert.alert('Success', 'Registration successful! Please verify your email.');
+          navigation.navigate('EmailVerification', { 
+            email, 
+            role: 'customer',
+            redirectScreen: 'CustomerTabs'
+          });
         } else {
           Alert.alert('Error', response.data?.message || 'Registration failed');
         }
       }
     } catch (error) {
       console.error('Authentication error:', error);
-      Alert.alert('Error', error.response?.data?.message || 'Authentication failed. Please try again.');
+      
+      // Handle different types of errors
+      if (error.message === 'No internet connection') {
+        Alert.alert(
+          'Network Error', 
+          'Please check your internet connection and try again.',
+          [{ text: 'OK' }]
+        );
+      } else if (error.code === 'ECONNABORTED' || error.message.includes('timeout')) {
+        Alert.alert(
+          'Connection Timeout', 
+          'The request took too long. Please check your connection and try again.',
+          [{ text: 'OK' }]
+        );
+      } else if (error.response?.status === 500) {
+        Alert.alert(
+          'Server Error', 
+          'Server is temporarily unavailable. Please try again in a few moments.',
+          [{ text: 'OK' }]
+        );
+      } else {
+        Alert.alert(
+          'Authentication Error', 
+          error.response?.data?.message || 'Authentication failed. Please try again.',
+          [{ text: 'OK' }]
+        );
+      }
     } finally {
       setLoading(false);
     }
@@ -189,6 +219,12 @@ const CustomerAuthScreen = ({ navigation }) => {
               />
             </TouchableOpacity>
           </View>
+          {/* Forgot Password Link */}
+          {isLogin && (
+            <TouchableOpacity onPress={() => navigation.navigate('ForgotPassword')} style={{ alignSelf: 'flex-end', marginBottom: 12 }}>
+              <Text style={{ color: '#4CAF50', fontWeight: 'bold', fontSize: 15 }}>Forgot Password?</Text>
+            </TouchableOpacity>
+          )}
 
           <TouchableOpacity
             style={[styles.authButton, loading && styles.disabledButton]}

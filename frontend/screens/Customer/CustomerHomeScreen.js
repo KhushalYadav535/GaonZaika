@@ -76,7 +76,7 @@ const CustomerHomeScreen = ({ navigation }) => {
         latitude, 
         longitude, 
         searchRadius,
-        { isOpen: true }
+        {} // Remove isOpen filter to show all restaurants
       );
       
       console.log('Nearby restaurants API response:', response.data);
@@ -218,12 +218,24 @@ const CustomerHomeScreen = ({ navigation }) => {
 
   const renderRestaurant = ({ item }) => (
     <TouchableOpacity
-      style={styles.restaurantCard}
+      style={[
+        styles.restaurantCard,
+        !item.isOpen && styles.closedRestaurantCard
+      ]}
       onPress={() => {
+        if (!item.isOpen) {
+          Alert.alert(
+            'Restaurant Closed',
+            'This restaurant is currently closed. Please try again later.',
+            [{ text: 'OK' }]
+          );
+          return;
+        }
         console.log('Navigating to restaurant menu with data:', item);
         navigation.navigate('RestaurantMenu', { restaurant: item });
       }}
-      activeOpacity={0.7}
+      activeOpacity={item.isOpen ? 0.7 : 1}
+      disabled={!item.isOpen}
     >
       <Image 
         source={{ uri: item.image }} 
@@ -267,8 +279,23 @@ const CustomerHomeScreen = ({ navigation }) => {
           </View>
         </View>
         
-        <View style={[styles.statusBadge, { backgroundColor: item.isOpen ? '#4CAF50' : '#F44336' }]}>
-          <Text style={styles.statusText}>{item.isOpen ? 'Open' : 'Closed'}</Text>
+        <View style={[
+          styles.statusBadge, 
+          { 
+            backgroundColor: item.isOpen ? '#4CAF50' : '#F44336',
+            borderWidth: item.isOpen ? 0 : 2,
+            borderColor: item.isOpen ? 'transparent' : '#F44336'
+          }
+        ]}>
+          <MaterialIcons 
+            name={item.isOpen ? "check-circle" : "cancel"} 
+            size={16} 
+            color="white" 
+            style={{ marginRight: 4 }}
+          />
+          <Text style={styles.statusText}>
+            {item.isOpen ? 'OPEN' : 'CLOSED'}
+          </Text>
         </View>
       </View>
     </TouchableOpacity>
@@ -452,6 +479,10 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     overflow: 'hidden',
   },
+  closedRestaurantCard: {
+    opacity: 0.7,
+    backgroundColor: '#f8f8f8',
+  },
   restaurantImage: {
     width: '100%',
     height: 150,
@@ -511,10 +542,16 @@ const styles = StyleSheet.create({
     color: '#666',
   },
   statusBadge: {
-    alignSelf: 'flex-start',
+    position: 'absolute',
+    top: 12,
+    right: 12,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    minWidth: 80,
+    justifyContent: 'center',
   },
   statusText: {
     fontSize: 12,

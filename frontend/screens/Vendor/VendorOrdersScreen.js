@@ -8,7 +8,9 @@ import {
   SafeAreaView, 
   Alert,
   ActivityIndicator,
-  RefreshControl
+  RefreshControl,
+  Modal,
+  TextInput
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import apiService from '../../services/apiService';
@@ -18,6 +20,9 @@ const VendorOrdersScreen = () => {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [cancelModalVisible, setCancelModalVisible] = useState(false);
+  const [cancelReason, setCancelReason] = useState('');
+  const [cancelOrderId, setCancelOrderId] = useState(null);
   const { vendorId, loading: vendorLoading } = useVendor();
 
   useEffect(() => {
@@ -102,6 +107,31 @@ const VendorOrdersScreen = () => {
         }
       ]
     );
+  };
+
+  const handleCancelOrder = (orderId) => {
+    setCancelOrderId(orderId);
+    setCancelReason('');
+    setCancelModalVisible(true);
+  };
+  const confirmCancelOrder = async () => {
+    if (!cancelReason.trim()) {
+      Alert.alert('Reason required', 'Please enter a reason for cancellation.');
+      return;
+    }
+    try {
+      setLoading(true);
+      await apiService.cancelOrder(cancelOrderId, cancelReason);
+      setCancelModalVisible(false);
+      setCancelOrderId(null);
+      setCancelReason('');
+      loadOrders();
+      Alert.alert('Order Cancelled', 'Order has been cancelled.');
+    } catch (error) {
+      Alert.alert('Error', error.response?.data?.message || 'Failed to cancel order.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const getStatusColor = (status) => {
@@ -237,7 +267,22 @@ const VendorOrdersScreen = () => {
               <Text style={styles.actionText}>Cancel</Text>
             </TouchableOpacity>
           )}
+          {['Order Placed', 'Accepted', 'Preparing'].includes(item.status) && (
+            <TouchableOpacity
+              style={styles.cancelButton}
+              onPress={() => handleCancelOrder(item._id || item.id)}
+            >
+              <MaterialIcons name="cancel" size={20} color="#fff" />
+              <Text style={styles.cancelButtonText}>Cancel Order</Text>
+            </TouchableOpacity>
+          )}
         </View>
+        {/* Show cancellation reason if cancelled */}
+        {item.status === 'Cancelled' && item.cancellationReason && (
+          <Text style={styles.cancelReasonText}>
+            Cancelled: {item.cancellationReason}
+          </Text>
+        )}
       </View>
     );
   };
@@ -274,6 +319,34 @@ const VendorOrdersScreen = () => {
           contentContainerStyle={styles.listContainer}
         />
       )}
+      {/* Cancel Order Modal */}
+      <Modal
+        visible={cancelModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setCancelModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Cancel Order</Text>
+            <TextInput
+              style={styles.modalInput}
+              placeholder="Enter cancellation reason"
+              value={cancelReason}
+              onChangeText={setCancelReason}
+              multiline
+            />
+            <View style={styles.modalActions}>
+              <TouchableOpacity style={styles.modalButton} onPress={confirmCancelOrder}>
+                <Text style={styles.modalButtonText}>Confirm</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.modalButton, { backgroundColor: '#ccc' }]} onPress={() => setCancelModalVisible(false)}>
+                <Text style={[styles.modalButtonText, { color: '#333' }]}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -443,7 +516,74 @@ const styles = StyleSheet.create({
     color: '#888',
     fontSize: 14,
     marginTop: 8
-  }
+  },
+  cancelButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#E53935',
+    paddingVertical: 6,
+    paddingHorizontal: 14,
+    borderRadius: 8,
+    alignSelf: 'flex-end',
+    marginTop: 8,
+  },
+  cancelButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    marginLeft: 6,
+    fontSize: 15,
+  },
+  cancelReasonText: {
+    color: '#E53935',
+    fontStyle: 'italic',
+    marginTop: 6,
+    fontSize: 14,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 24,
+    width: '85%',
+    elevation: 6,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 12,
+    color: '#E53935',
+    textAlign: 'center',
+  },
+  modalInput: {
+    borderWidth: 1,
+    borderColor: '#ccc',
+    borderRadius: 8,
+    padding: 10,
+    minHeight: 60,
+    fontSize: 16,
+    marginBottom: 18,
+    textAlignVertical: 'top',
+  },
+  modalActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  modalButton: {
+    backgroundColor: '#E53935',
+    paddingVertical: 10,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+  },
+  modalButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
 });
 
 export default VendorOrdersScreen; 

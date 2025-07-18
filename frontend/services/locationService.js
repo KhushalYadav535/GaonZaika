@@ -23,7 +23,7 @@ class LocationService {
           'Please enable location services to find restaurants near you.',
           [
             { text: 'Cancel', style: 'cancel' },
-            { text: 'Settings', onPress: () => Location.openSettingsAsync() }
+            { text: 'Settings', onPress: () => Linking.openSettings() }
           ]
         );
         return null;
@@ -39,7 +39,7 @@ class LocationService {
           'This app needs location access to show you nearby restaurants. Please grant location permission.',
           [
             { text: 'Cancel', style: 'cancel' },
-            { text: 'Settings', onPress: () => Location.openSettingsAsync() }
+            { text: 'Settings', onPress: () => Linking.openSettings() }
           ]
         );
         return null;

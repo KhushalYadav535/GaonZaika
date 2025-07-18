@@ -9,8 +9,10 @@ import {
   ScrollView,
   Modal,
   TextInput,
+  Image,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 import { useVendor } from '../../hooks/useVendor';
 import BusinessHoursModal from './BusinessHoursModal';
 import RestaurantLocationModal from './RestaurantLocationModal';
@@ -24,6 +26,7 @@ const VendorProfileScreen = ({ navigation }) => {
   const [editHoursVisible, setEditHoursVisible] = useState(false);
   const [editLocationVisible, setEditLocationVisible] = useState(false);
   const [savingLocation, setSavingLocation] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
   const [profile, setProfile] = useState({
     name: vendorName || 'Vendor Name',
     email: vendorEmail || 'vendor@example.com',
@@ -50,6 +53,101 @@ const VendorProfileScreen = ({ navigation }) => {
             });
           },
         },
+      ]
+    );
+  };
+
+  const pickRestaurantImage = async () => {
+    try {
+      // Request permissions
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission needed', 'Please grant camera roll permissions to select images.');
+        return;
+      }
+
+      // Launch image picker
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [16, 9], // Restaurant image aspect ratio
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets && result.assets[0]) {
+        const selectedImage = result.assets[0];
+        await uploadRestaurantImage(selectedImage);
+      }
+    } catch (error) {
+      console.error('Error picking image:', error);
+      Alert.alert('Error', 'Failed to pick image');
+    }
+  };
+
+  const uploadRestaurantImage = async (selectedImage) => {
+    if (!vendorData?.id) {
+      Alert.alert('Error', 'Vendor data not found');
+      return;
+    }
+
+    setUploadingImage(true);
+    try {
+      const imageFile = {
+        uri: selectedImage.uri,
+        type: 'image/jpeg',
+        name: `restaurant-${Date.now()}.jpg`
+      };
+
+      const response = await apiService.uploadRestaurantImage(vendorData.id, imageFile);
+      
+      if (response.data.success) {
+        Alert.alert('Success', 'Restaurant image updated successfully!');
+        // Refresh vendor data to show new image
+        // You might need to implement a refresh function in useVendor hook
+      } else {
+        Alert.alert('Error', response.data.message || 'Failed to upload image');
+      }
+    } catch (error) {
+      console.error('Error uploading restaurant image:', error);
+      Alert.alert('Error', 'Failed to upload image. Please try again.');
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
+  const removeRestaurantImage = async () => {
+    if (!vendorData?.id) {
+      Alert.alert('Error', 'Vendor data not found');
+      return;
+    }
+
+    Alert.alert(
+      'Remove Image',
+      'Are you sure you want to remove the restaurant image?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Remove',
+          style: 'destructive',
+          onPress: async () => {
+            setUploadingImage(true);
+            try {
+              const response = await apiService.deleteRestaurantImage(vendorData.id);
+              
+              if (response.data.success) {
+                Alert.alert('Success', 'Restaurant image removed successfully!');
+                // Refresh vendor data
+              } else {
+                Alert.alert('Error', response.data.message || 'Failed to remove image');
+              }
+            } catch (error) {
+              console.error('Error removing restaurant image:', error);
+              Alert.alert('Error', 'Failed to remove image. Please try again.');
+            } finally {
+              setUploadingImage(false);
+            }
+          }
+        }
       ]
     );
   };
@@ -133,12 +231,52 @@ const VendorProfileScreen = ({ navigation }) => {
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.header}>
           <View style={styles.avatarContainer}>
-            <MaterialIcons name="restaurant" size={60} color="#FF9800" />
+            {restaurant?.image ? (
+              <Image 
+                source={{ uri: restaurant.image }} 
+                style={styles.restaurantImage}
+                resizeMode="cover"
+              />
+            ) : (
+              <MaterialIcons name="restaurant" size={60} color="#FF9800" />
+            )}
+            {uploadingImage && (
+              <View style={styles.uploadingOverlay}>
+                <Text style={styles.uploadingText}>Uploading...</Text>
+              </View>
+            )}
           </View>
           <Text style={styles.name}>{restaurant?.name || 'Restaurant'}</Text>
           <Text style={styles.owner}>Owner: {vendorName}</Text>
           <Text style={styles.email}>{vendorEmail}</Text>
           <Text style={styles.phone}>{vendorPhone}</Text>
+          
+          {/* Restaurant Image Management */}
+          <View style={styles.imageActions}>
+            <TouchableOpacity 
+              style={styles.imageActionButton} 
+              onPress={pickRestaurantImage}
+              disabled={uploadingImage}
+            >
+              <MaterialIcons name="photo-camera" size={20} color="#4CAF50" />
+              <Text style={styles.imageActionText}>
+                {restaurant?.image ? 'Change Image' : 'Add Image'}
+              </Text>
+            </TouchableOpacity>
+            
+            {restaurant?.image && (
+              <TouchableOpacity 
+                style={[styles.imageActionButton, styles.removeButton]} 
+                onPress={removeRestaurantImage}
+                disabled={uploadingImage}
+              >
+                <MaterialIcons name="delete" size={20} color="#F44336" />
+                <Text style={[styles.imageActionText, { color: '#F44336' }]}>
+                  Remove
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
         </View>
 
         <View style={styles.section}>
@@ -163,6 +301,20 @@ const VendorProfileScreen = ({ navigation }) => {
             <Text style={styles.menuText}>Restaurant Location</Text>
             <MaterialIcons name="chevron-right" size={24} color="#666" />
           </TouchableOpacity>
+          <TouchableOpacity style={styles.menuItem} onPress={pickRestaurantImage}>
+            <MaterialIcons name="photo-camera" size={24} color="#666" />
+            <Text style={styles.menuText}>
+              {restaurant?.image ? 'Change Restaurant Image' : 'Add Restaurant Image'}
+            </Text>
+            <MaterialIcons name="chevron-right" size={24} color="#666" />
+          </TouchableOpacity>
+          {restaurant?.image && (
+            <TouchableOpacity style={styles.menuItem} onPress={removeRestaurantImage}>
+              <MaterialIcons name="delete" size={24} color="#F44336" />
+              <Text style={[styles.menuText, { color: '#F44336' }]}>Remove Restaurant Image</Text>
+              <MaterialIcons name="chevron-right" size={24} color="#666" />
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* Current Location Display */}
@@ -227,7 +379,7 @@ const VendorProfileScreen = ({ navigation }) => {
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Support</Text>
-          <TouchableOpacity style={styles.menuItem} onPress={() => setHelpVisible(true)}>
+          <TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate('Help')}>
             <MaterialIcons name="help" size={24} color="#666" />
             <Text style={styles.menuText}>Help & Support</Text>
             <MaterialIcons name="chevron-right" size={24} color="#666" />
@@ -489,13 +641,62 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   avatarContainer: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
+    width: 120,
+    height: 120,
+    borderRadius: 60,
     backgroundColor: '#FFF3E0',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 16,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  restaurantImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 60,
+  },
+  uploadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 60,
+  },
+  uploadingText: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  imageActions: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginTop: 16,
+    gap: 12,
+  },
+  imageActionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: '#f0f0f0',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#ddd',
+  },
+  removeButton: {
+    backgroundColor: '#ffebee',
+    borderColor: '#ffcdd2',
+  },
+  imageActionText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#333',
+    marginLeft: 4,
   },
   name: {
     fontSize: 24,

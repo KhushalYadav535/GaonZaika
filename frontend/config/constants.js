@@ -6,7 +6,7 @@ export const CONFIG = {
   GOOGLE_MAPS_API_KEY: null, // Replace with your actual Google Maps API key
   
   // API Base URL
-  API_BASE_URL: 'http://192.168.1.4:3000', // Update this to match your backend URL
+  API_BASE_URL: 'https://gaonzaika.onrender.com', // Production backend URL
   
   // App Configuration
   APP_NAME: 'Gaon Zaika',
@@ -21,6 +21,9 @@ export const CONFIG = {
   // Distance Configuration
   MAX_DELIVERY_DISTANCE: 10, // km
   NEARBY_RESTAURANT_RADIUS: 5, // km
+  SUPPORT_PHONE: '8182838680',
+  SUPPORT_WHATSAPP: '8182838680',
+  SUPPORT_EMAIL: 'gaonzaika@gmail.com',
 };
 
 // Helper function to get Google Maps API key

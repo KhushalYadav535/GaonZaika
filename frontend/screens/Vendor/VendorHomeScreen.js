@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   SafeAreaView,
   ScrollView,
+  Alert,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useVendor } from '../../hooks/useVendor';
@@ -25,10 +26,13 @@ const VendorHomeScreen = ({ navigation }) => {
     totalRatings: 0
   });
   const [loading, setLoading] = useState(false);
+  const [isLive, setIsLive] = useState(false);
+  const [liveLoading, setLiveLoading] = useState(false);
 
   useEffect(() => {
     if (vendorId && !vendorLoading) {
       loadDashboardData();
+      loadLiveStatus();
     }
   }, [vendorId, vendorLoading]);
 
@@ -45,6 +49,46 @@ const VendorHomeScreen = ({ navigation }) => {
       console.error('Error loading dashboard data:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadLiveStatus = async () => {
+    if (!vendorId) return;
+
+    try {
+      const response = await apiService.getVendorLiveStatus(vendorId);
+      if (response.data.success) {
+        setIsLive(response.data.data.isLive);
+      }
+    } catch (error) {
+      console.error('Error loading live status:', error);
+    }
+  };
+
+  const toggleLiveStatus = async () => {
+    if (!vendorId) return;
+
+    setLiveLoading(true);
+    try {
+      const response = await apiService.toggleVendorLive(vendorId);
+      if (response.data.success) {
+        setIsLive(response.data.data.isLive);
+        // Show success message
+        Alert.alert(
+          'Success',
+          response.data.message,
+          [{ text: 'OK' }]
+        );
+      }
+    } catch (error) {
+      console.error('Error toggling live status:', error);
+      Alert.alert(
+        'Error',
+        'Failed to update live status. Please try again.',
+        [{ text: 'OK' }]
+      );
+    } finally {
+      setLiveLoading(false);
     }
   };
 
@@ -79,12 +123,55 @@ const VendorHomeScreen = ({ navigation }) => {
           <View style={{ flex: 1 }}>
             <Text style={styles.restaurantName}>{restaurant?.name || 'Restaurant'}</Text>
             <View style={styles.statusRow}>
-              <View style={[styles.statusDot, { backgroundColor: restaurant?.isOpen ? '#4CAF50' : '#f44336' }]} />
-              <Text style={[styles.statusText, { color: restaurant?.isOpen ? '#4CAF50' : '#f44336' }]}>
-                {restaurant?.isOpen ? 'Open' : 'Closed'}
+              <View style={[styles.statusDot, { backgroundColor: isLive ? '#4CAF50' : '#f44336' }]} />
+              <Text style={[styles.statusText, { color: isLive ? '#4CAF50' : '#f44336' }]}>
+                {isLive ? 'LIVE' : 'OFFLINE'}
               </Text>
             </View>
           </View>
+          <TouchableOpacity
+            style={[
+              styles.liveButton,
+              { backgroundColor: isLive ? '#f44336' : '#4CAF50' }
+            ]}
+            onPress={toggleLiveStatus}
+            disabled={liveLoading}
+          >
+            <MaterialIcons 
+              name={isLive ? "stop" : "play-arrow"} 
+              size={20} 
+              color="white" 
+            />
+            <Text style={styles.liveButtonText}>
+              {liveLoading ? '...' : (isLive ? 'Go Offline' : 'Go Live')}
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Live Status Card */}
+        <View style={styles.liveStatusCard}>
+          <View style={styles.liveStatusHeader}>
+            <MaterialIcons 
+              name={isLive ? "wifi" : "wifi-off"} 
+              size={24} 
+              color={isLive ? '#4CAF50' : '#f44336'} 
+            />
+            <Text style={styles.liveStatusTitle}>
+              {isLive ? 'Restaurant is LIVE' : 'Restaurant is OFFLINE'}
+            </Text>
+          </View>
+          <Text style={styles.liveStatusDescription}>
+            {isLive 
+              ? 'Customers can see your restaurant and place orders. You will receive order notifications.'
+              : 'Restaurant is closed. Customers cannot place orders. Go live to start accepting orders.'
+            }
+          </Text>
+          {isLive && (
+            <View style={styles.liveIndicator}>
+              <View style={styles.livePulse} />
+              <Text style={styles.liveIndicatorText}>LIVE</Text>
+            </View>
+          )}
         </View>
 
         {/* Today's Summary */}
@@ -199,6 +286,65 @@ const styles = StyleSheet.create({
   statusText: {
     fontSize: 14,
     fontWeight: 'bold',
+  },
+  liveButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    marginLeft: 12,
+  },
+  liveButtonText: {
+    color: 'white',
+    fontWeight: 'bold',
+    fontSize: 12,
+    marginLeft: 4,
+  },
+  liveStatusCard: {
+    backgroundColor: 'white',
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 20,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 2,
+  },
+  liveStatusHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  liveStatusTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#333',
+    marginLeft: 8,
+  },
+  liveStatusDescription: {
+    fontSize: 14,
+    color: '#666',
+    lineHeight: 20,
+    marginBottom: 12,
+  },
+  liveIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+  },
+  livePulse: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#4CAF50',
+    marginRight: 6,
+  },
+  liveIndicatorText: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: '#4CAF50',
   },
   summaryCard: {
     backgroundColor: 'white',

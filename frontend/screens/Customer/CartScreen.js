@@ -26,6 +26,16 @@ const CartScreen = ({ route, navigation }) => {
     return cart.reduce((total, item) => total + (item.price * item.quantity), 0);
   };
 
+  const isMinimumOrderMet = () => {
+    if (!restaurant?.minOrder) return true;
+    return getTotalAmount() >= restaurant.minOrder;
+  };
+
+  const getShortfallAmount = () => {
+    if (!restaurant?.minOrder) return 0;
+    return Math.max(0, restaurant.minOrder - getTotalAmount());
+  };
+
   const getTotalItems = () => {
     return cart.reduce((total, item) => total + item.quantity, 0);
   };
@@ -91,7 +101,20 @@ const CartScreen = ({ route, navigation }) => {
       if (response.data && response.data.success) {
         navigation.navigate('OrderConfirmation', { order: response.data.data });
       } else {
-        Alert.alert('Error', response.data?.message || 'Failed to place order');
+        // Handle specific error types
+        if (response.data?.errorType === 'MIN_ORDER_NOT_MET') {
+          const errorData = response.data.data;
+          Alert.alert(
+            'Minimum Order Not Met',
+            `Your current order is ₹${errorData.currentAmount}, but ${errorData.restaurantName} requires a minimum order of ₹${errorData.minimumAmount}.\n\nPlease add ₹${errorData.shortfall} more to your cart to proceed.`,
+            [
+              { text: 'Continue Shopping', onPress: () => navigation.goBack() },
+              { text: 'OK' }
+            ]
+          );
+        } else {
+          Alert.alert('Error', response.data?.message || 'Failed to place order');
+        }
       }
     } catch (error) {
       console.error('Error placing order:', error);
@@ -170,6 +193,16 @@ const CartScreen = ({ route, navigation }) => {
           <Text style={styles.totalLabel}>Total</Text>
           <Text style={styles.totalValue}>₹{getTotalAmount() + 20}</Text>
         </View>
+        
+        {/* Minimum Order Warning */}
+        {restaurant?.minOrder && !isMinimumOrderMet() && (
+          <View style={styles.minOrderWarning}>
+            <MaterialIcons name="warning" size={16} color="#F39C12" />
+            <Text style={styles.minOrderText}>
+              Minimum order: ₹{restaurant.minOrder} • Add ₹{getShortfallAmount()} more
+            </Text>
+          </View>
+        )}
       </View>
 
       <View style={styles.paymentSection}>
@@ -182,12 +215,19 @@ const CartScreen = ({ route, navigation }) => {
 
       <View style={styles.bottomSection}>
         <TouchableOpacity
-          style={[styles.placeOrderButton, loading && styles.disabledButton]}
+          style={[
+            styles.placeOrderButton, 
+            (loading || !isMinimumOrderMet()) && styles.disabledButton
+          ]}
           onPress={handlePlaceOrder}
-          disabled={loading}
+          disabled={loading || !isMinimumOrderMet()}
         >
           <Text style={styles.placeOrderText}>
-            {loading ? 'Placing Order...' : `Place Order - ₹${getTotalAmount() + 20}`}
+            {loading ? 'Placing Order...' : 
+             !isMinimumOrderMet() 
+               ? `Add ₹${getShortfallAmount()} more` 
+               : `Place Order - ₹${getTotalAmount() + 20}`
+            }
           </Text>
         </TouchableOpacity>
       </View>
@@ -338,6 +378,22 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     color: '#4CAF50',
+  },
+  minOrderWarning: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFF3CD',
+    borderColor: '#FFEAA7',
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 12,
+    marginTop: 12,
+  },
+  minOrderText: {
+    fontSize: 14,
+    color: '#856404',
+    marginLeft: 8,
+    fontWeight: '500',
   },
   paymentSection: {
     backgroundColor: 'white',

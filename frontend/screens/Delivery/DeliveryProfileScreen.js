@@ -12,6 +12,7 @@ import {
   FlatList,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const DeliveryProfileScreen = ({ navigation }) => {
   // Profile state
@@ -66,8 +67,22 @@ const DeliveryProfileScreen = ({ navigation }) => {
         {
           text: 'Logout',
           style: 'destructive',
-          onPress: () => {
-            navigation.reset({ index: 0, routes: [{ name: 'RoleSelection' }] });
+          onPress: async () => {
+            try {
+              // Clear delivery data from AsyncStorage
+              await AsyncStorage.multiRemove([
+                'deliveryData',
+                'deliveryToken'
+              ]);
+              console.log('Delivery data cleared on logout');
+            } catch (error) {
+              console.error('Error clearing delivery data:', error);
+            }
+            
+            navigation.reset({
+              index: 0,
+              routes: [{ name: 'RoleSelection' }],
+            });
           },
         },
       ]
@@ -153,7 +168,7 @@ const DeliveryProfileScreen = ({ navigation }) => {
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Support</Text>
-          <TouchableOpacity style={styles.menuItem} onPress={() => setHelpVisible(true)}>
+          <TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate('Help')}>
             <MaterialIcons name="help" size={24} color="#666" />
             <Text style={styles.menuText}>Help & Support</Text>
             <MaterialIcons name="chevron-right" size={24} color="#666" />

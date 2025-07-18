@@ -147,6 +147,16 @@ const RestaurantMenuScreen = ({ route, navigation }) => {
     return cart.reduce((total, item) => total + (item.price * item.quantity), 0);
   };
 
+  const isMinimumOrderMet = () => {
+    if (!restaurant?.minOrder) return true;
+    return getTotalAmount() >= restaurant.minOrder;
+  };
+
+  const getShortfallAmount = () => {
+    if (!restaurant?.minOrder) return 0;
+    return Math.max(0, restaurant.minOrder - getTotalAmount());
+  };
+
   const handleViewCart = () => {
     if (cart.length === 0) {
       Alert.alert('Empty Cart', 'Please add some items to your cart first.');
@@ -234,6 +244,11 @@ const RestaurantMenuScreen = ({ route, navigation }) => {
             <View style={styles.cartInfo}>
               <Text style={styles.cartItemsText}>{getTotalItems()} items</Text>
               <Text style={styles.cartTotalText}>₹{getTotalAmount()}</Text>
+              {restaurant?.minOrder && !isMinimumOrderMet() && (
+                <Text style={styles.minOrderText}>
+                  Add ₹{getShortfallAmount()} more for minimum order
+                </Text>
+              )}
             </View>
             <Text style={styles.viewCartText}>View Cart</Text>
           </TouchableOpacity>
@@ -383,6 +398,12 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  minOrderText: {
+    color: 'white',
+    fontSize: 12,
+    opacity: 0.8,
+    marginTop: 2,
   },
 });
 

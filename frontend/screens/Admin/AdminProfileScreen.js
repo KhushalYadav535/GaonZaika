@@ -9,6 +9,7 @@ import {
   ScrollView,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const AdminProfileScreen = ({ navigation }) => {
   const handleLogout = () => {
@@ -23,7 +24,18 @@ const AdminProfileScreen = ({ navigation }) => {
         {
           text: 'Logout',
           style: 'destructive',
-          onPress: () => {
+          onPress: async () => {
+            try {
+              // Clear admin data from AsyncStorage
+              await AsyncStorage.multiRemove([
+                'adminData',
+                'adminToken'
+              ]);
+              console.log('Admin data cleared on logout');
+            } catch (error) {
+              console.error('Error clearing admin data:', error);
+            }
+            
             // Navigate back to role selection
             navigation.reset({
               index: 0,

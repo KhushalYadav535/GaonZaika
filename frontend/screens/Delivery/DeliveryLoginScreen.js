@@ -70,6 +70,9 @@ const DeliveryLoginScreen = ({ navigation }) => {
         <TouchableOpacity style={[styles.loginButton, loading && styles.disabledButton]} onPress={handleLogin} disabled={loading}>
           <Text style={styles.loginText}>{loading ? 'Logging in...' : 'Login'}</Text>
         </TouchableOpacity>
+        <TouchableOpacity style={{ alignSelf: 'center', marginTop: 12 }} onPress={() => navigation.navigate('ForgotPassword')}>
+          <Text style={{ color: '#2196F3', fontWeight: 'bold' }}>Forgot Password?</Text>
+        </TouchableOpacity>
       </View>
       <View style={styles.footer}>
         <Text style={styles.footerText}>Demo: delivery@test.com / test123</Text>

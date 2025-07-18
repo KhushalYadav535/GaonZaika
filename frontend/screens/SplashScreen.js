@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -6,12 +6,16 @@ import {
   SafeAreaView,
   Animated,
   Dimensions,
+  TouchableOpacity,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
+import { initializeApp } from '../utils/networkUtils';
 
 const { width, height } = Dimensions.get('window');
 
-const SplashScreen = () => {
+const SplashScreen = ({ navigation }) => {
+  const [isInitializing, setIsInitializing] = useState(true);
+  const [initError, setInitError] = useState(null);
   const fadeAnim = new Animated.Value(0);
   const scaleAnim = new Animated.Value(0.8);
   const slideAnim = new Animated.Value(50);
@@ -35,8 +39,38 @@ const SplashScreen = () => {
         useNativeDriver: true,
       }),
     ]).start();
-    // No navigation or onFinish needed
+
+    // Initialize app with network check
+    initializeAppWithRetry();
   }, []);
+
+  const initializeAppWithRetry = async (retryCount = 0) => {
+    try {
+      setIsInitializing(true);
+      setInitError(null);
+      
+      const result = await initializeApp();
+      
+      if (result.success) {
+        // App initialized successfully, proceed after delay
+        setTimeout(() => {
+          setIsInitializing(false);
+        }, 2000);
+      } else {
+        // Initialization failed
+        setInitError(result.message);
+        setIsInitializing(false);
+      }
+    } catch (error) {
+      console.error('App initialization error:', error);
+      setInitError('Failed to initialize app');
+      setIsInitializing(false);
+    }
+  };
+
+  const handleRetry = () => {
+    initializeAppWithRetry();
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -75,11 +109,21 @@ const SplashScreen = () => {
             },
           ]}
         >
-          <View style={styles.loadingDots}>
-            <View style={[styles.dot, styles.dot1]} />
-            <View style={[styles.dot, styles.dot2]} />
-            <View style={[styles.dot, styles.dot3]} />
-          </View>
+          {isInitializing ? (
+            <View style={styles.loadingDots}>
+              <View style={[styles.dot, styles.dot1]} />
+              <View style={[styles.dot, styles.dot2]} />
+              <View style={[styles.dot, styles.dot3]} />
+            </View>
+          ) : initError ? (
+            <View style={styles.errorContainer}>
+              <MaterialIcons name="wifi-off" size={32} color="#f44336" />
+              <Text style={styles.errorText}>{initError}</Text>
+              <TouchableOpacity style={styles.retryButton} onPress={handleRetry}>
+                <Text style={styles.retryButtonText}>Retry</Text>
+              </TouchableOpacity>
+            </View>
+          ) : null}
         </Animated.View>
       </View>
     </SafeAreaView>
@@ -147,6 +191,28 @@ const styles = StyleSheet.create({
   },
   dot3: {
     animationDelay: '0.4s',
+  },
+  errorContainer: {
+    alignItems: 'center',
+    paddingHorizontal: 20,
+  },
+  errorText: {
+    fontSize: 16,
+    color: '#f44336',
+    textAlign: 'center',
+    marginTop: 8,
+    marginBottom: 16,
+  },
+  retryButton: {
+    backgroundColor: '#4CAF50',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
 

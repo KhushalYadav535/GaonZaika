@@ -1,16 +1,23 @@
 {
   "name": "gaon-zaika",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "main": "node_modules/expo/AppEntry.js",
   "scripts": {
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "build:android": "eas build --platform android --profile production",
+    "build:android-preview": "eas build --platform android --profile preview",
+    "build:ios": "eas build --platform ios --profile production",
+    "submit:android": "eas submit --platform android --profile production",
+    "submit:ios": "eas submit --platform ios --profile production",
+    "build:all": "eas build --platform all --profile production"
   },
   "dependencies": {
     "@expo/vector-icons": "^14.1.0",
     "@react-native-async-storage/async-storage": "2.1.2",
+    "@react-native-community/netinfo": "^11.4.1",
     "@react-native-picker/picker": "^2.11.1",
     "@react-navigation/bottom-tabs": "^6.5.11",
     "@react-navigation/native": "^6.1.9",
@@ -18,17 +25,16 @@
     "axios": "^1.6.2",
     "expo": "~53.0.0",
     "expo-camera": "~16.1.9",
-    "expo-device": "~6.0.0",
+    "expo-device": "~7.1.4",
     "expo-image-picker": "~16.1.4",
     "expo-linear-gradient": "^14.1.5",
     "expo-location": "~18.1.0",
-    "expo-notifications": "^0.27.8",
+    "expo-notifications": "~0.31.4",
     "expo-status-bar": "~2.2.3",
     "react": "19.0.0",
-    "react-native": "0.79.4",
+    "react-native": "0.79.5",
     "react-native-elements": "^3.4.3",
     "react-native-gesture-handler": "~2.24.0",
-    "react-native-image-picker": "^7.1.0",
     "react-native-modal": "^13.0.1",
     "react-native-paper": "^5.11.1",
     "react-native-reanimated": "~3.17.4",
@@ -38,7 +44,8 @@
     "react-native-vector-icons": "^10.0.2"
   },
   "devDependencies": {
-    "@babel/core": "^7.20.0"
+    "@babel/core": "^7.20.0",
+    "expo-modules-autolinking": "~2.1.0"
   },
   "private": true
 }

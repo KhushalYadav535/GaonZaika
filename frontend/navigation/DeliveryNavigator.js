@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { createStackNavigator } from '@react-navigation/stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { MaterialIcons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Import screens
 import DeliveryAuthScreen from '../screens/Delivery/DeliveryAuthScreen';
@@ -12,6 +13,10 @@ import DeliveryProfileScreen from '../screens/Delivery/DeliveryProfileScreen';
 import EarningsHistoryScreen from '../screens/Delivery/EarningsHistoryScreen';
 import DeliveryHistoryScreen from '../screens/Delivery/DeliveryHistoryScreen';
 import PerformanceReportScreen from '../screens/Delivery/PerformanceReportScreen';
+import HelpScreen from '../screens/HelpScreen';
+import ForgotPasswordScreen from '../screens/Delivery/ForgotPasswordScreen';
+import ResetPasswordScreen from '../screens/Delivery/ResetPasswordScreen';
+import EmailVerificationScreen from '../screens/EmailVerificationScreen';
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -45,12 +50,41 @@ const DeliveryTabs = () => {
   );
 };
 
-const DeliveryNavigator = () => {
+const DeliveryNavigator = ({ route }) => {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    checkAuthentication();
+  }, []);
+
+  const checkAuthentication = async () => {
+    try {
+      const deliveryToken = await AsyncStorage.getItem('deliveryToken');
+      if (deliveryToken && deliveryToken.trim()) {
+        setIsAuthenticated(true);
+      } else {
+        setIsAuthenticated(false);
+      }
+    } catch (error) {
+      console.error('Error checking delivery authentication:', error);
+      setIsAuthenticated(false);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // If loading, show a simple loading screen
+  if (isLoading) {
+    return null; // This will show the splash screen from App.js
+  }
+
   return (
     <Stack.Navigator
       screenOptions={{
         headerShown: false,
       }}
+      initialRouteName={isAuthenticated ? 'DeliveryTabs' : 'DeliveryAuth'}
     >
       <Stack.Screen name="DeliveryAuth" component={DeliveryAuthScreen} />
       <Stack.Screen name="DeliveryTabs" component={DeliveryTabs} />
@@ -58,6 +92,10 @@ const DeliveryNavigator = () => {
       <Stack.Screen name="EarningsHistory" component={EarningsHistoryScreen} />
       <Stack.Screen name="DeliveryHistory" component={DeliveryHistoryScreen} />
       <Stack.Screen name="PerformanceReport" component={PerformanceReportScreen} />
+      <Stack.Screen name="Help" component={HelpScreen} />
+      <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
+      <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
+      <Stack.Screen name="EmailVerification" component={EmailVerificationScreen} />
     </Stack.Navigator>
   );
 };

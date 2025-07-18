@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { createStackNavigator } from '@react-navigation/stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { MaterialIcons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Import screens
 import AdminAuthScreen from '../screens/Admin/AdminAuthScreen';
@@ -49,12 +50,41 @@ const AdminTabs = () => {
   );
 };
 
-const AdminNavigator = () => {
+const AdminNavigator = ({ route }) => {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    checkAuthentication();
+  }, []);
+
+  const checkAuthentication = async () => {
+    try {
+      const adminToken = await AsyncStorage.getItem('adminToken');
+      if (adminToken && adminToken.trim()) {
+        setIsAuthenticated(true);
+      } else {
+        setIsAuthenticated(false);
+      }
+    } catch (error) {
+      console.error('Error checking admin authentication:', error);
+      setIsAuthenticated(false);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // If loading, show a simple loading screen
+  if (isLoading) {
+    return null; // This will show the splash screen from App.js
+  }
+
   return (
     <Stack.Navigator
       screenOptions={{
         headerShown: false,
       }}
+      initialRouteName={isAuthenticated ? 'AdminTabs' : 'AdminAuth'}
     >
       <Stack.Screen name="AdminAuth" component={AdminAuthScreen} />
       <Stack.Screen name="AdminTabs" component={AdminTabs} />

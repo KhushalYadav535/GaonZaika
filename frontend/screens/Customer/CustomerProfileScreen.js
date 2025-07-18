@@ -129,7 +129,7 @@ const CustomerProfileScreen = ({ navigation }) => {
             <Text style={styles.menuText}>Language</Text>
             <MaterialIcons name="chevron-right" size={24} color="#666" />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.menuItem} onPress={() => setHelpVisible(true)}>
+          <TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate('Help')}>
             <MaterialIcons name="help" size={24} color="#666" />
             <Text style={styles.menuText}>Help & Support</Text>
             <MaterialIcons name="chevron-right" size={24} color="#666" />

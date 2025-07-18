@@ -61,6 +61,72 @@ app.get('/health', (req, res) => {
   });
 });
 
+// Root endpoint - API information
+app.get('/', (req, res) => {
+  res.status(200).json({
+    success: true,
+    message: 'Welcome to Gaon Zaika API',
+    version: '1.0.0',
+    description: 'Village Food Delivery API - Connecting rural restaurants with customers',
+    status: 'Active',
+    environment: process.env.NODE_ENV || 'development',
+    endpoints: {
+      health: {
+        url: '/health',
+        method: 'GET',
+        description: 'API health check'
+      },
+      auth: {
+        url: '/api/auth',
+        methods: ['POST'],
+        description: 'Authentication endpoints for customers, vendors, delivery, and admin'
+      },
+      customers: {
+        url: '/api/customers',
+        methods: ['GET', 'PATCH'],
+        description: 'Customer profile and preferences management'
+      },
+      restaurants: {
+        url: '/api/restaurants',
+        methods: ['GET'],
+        description: 'Restaurant listings and menu information'
+      },
+      orders: {
+        url: '/api/orders',
+        methods: ['GET', 'POST', 'PATCH'],
+        description: 'Order management and tracking'
+      },
+      vendors: {
+        url: '/api/vendor',
+        methods: ['GET', 'PATCH'],
+        description: 'Vendor dashboard and restaurant management'
+      },
+      delivery: {
+        url: '/api/delivery',
+        methods: ['GET', 'PATCH'],
+        description: 'Delivery person management and order assignment'
+      },
+      admin: {
+        url: '/api/admin',
+        methods: ['GET'],
+        description: 'Admin dashboard and system management'
+      },
+      pushNotifications: {
+        url: '/api/push-notifications',
+        methods: ['POST'],
+        description: 'Push notification management'
+      }
+    },
+    documentation: 'This is a mobile app backend API. Use the Gaon Zaika mobile app to interact with the platform.',
+    support: {
+      email: 'gaonzaika@gmail.com',
+      phone: '8182838680',
+      whatsapp: '8182838680'
+    },
+    timestamp: new Date().toISOString()
+  });
+});
+
 // API routes
 app.use('/api/auth', authRoutes);
 app.use('/api/customers', customerRoutes);

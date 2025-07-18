@@ -223,6 +223,16 @@ restaurantSchema.statics.findNearbyWithFilters = function(longitude, latitude, m
     ];
   }
 
+  // Filter by live restaurants if specified
+  if (filters.liveRestaurantIds) {
+    query._id = { $in: filters.liveRestaurantIds };
+  }
+  
+  // Filter by all restaurant IDs if specified (for showing all restaurants)
+  if (filters.allRestaurantIds && filters.allRestaurantIds.length > 0) {
+    query._id = { $in: filters.allRestaurantIds };
+  }
+
   return this.find(query);
 };
 

@@ -69,6 +69,18 @@ const customerSchema = new mongoose.Schema({
   pushToken: {
     type: String,
     default: null
+  },
+  resetPasswordOTP: {
+    code: String,
+    expiresAt: Date
+  },
+  isEmailVerified: {
+    type: Boolean,
+    default: false
+  },
+  emailVerificationOTP: {
+    code: String,
+    expiresAt: Date
   }
 }, {
   timestamps: true

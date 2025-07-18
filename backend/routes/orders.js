@@ -8,6 +8,7 @@ const sendOTP = require('../utils/emailService');
 const Customer = require('../models/Customer');
 const mongoose = require('mongoose');
 const pushNotificationService = require('../services/pushNotificationService');
+const { verifyToken, getUser } = require('../middleware/auth');
 
 // Validation middleware
 const validateOrder = [
@@ -71,11 +72,29 @@ router.post('/', validateOrder, async (req, res) => {
       });
     }
 
-    // Verify minimum order amount
-    if (subtotal < restaurant.minOrder) {
+    // Check if vendor is live
+    const Vendor = require('../models/Vendor');
+    const vendor = await Vendor.findOne({ restaurantId: restaurantId });
+    if (!vendor || !vendor.isLive) {
       return res.status(400).json({
         success: false,
-        message: `Minimum order amount is ₹${restaurant.minOrder}`
+        message: 'Restaurant is currently offline. Please try again later.'
+      });
+    }
+
+    // Verify minimum order amount
+    if (subtotal < restaurant.minOrder) {
+      const shortfall = restaurant.minOrder - subtotal;
+      return res.status(400).json({
+        success: false,
+        message: `Minimum order amount is ₹${restaurant.minOrder}. Add ₹${shortfall} more to your cart.`,
+        errorType: 'MIN_ORDER_NOT_MET',
+        data: {
+          currentAmount: subtotal,
+          minimumAmount: restaurant.minOrder,
+          shortfall: shortfall,
+          restaurantName: restaurant.name
+        }
       });
     }
 
@@ -408,8 +427,17 @@ router.post('/:id/verify-otp', [
 });
 
 // Cancel order
-router.patch('/:id/cancel', async (req, res) => {
+router.patch('/:id/cancel', verifyToken, getUser, async (req, res) => {
   try {
+    console.log('Cancel order request:', {
+      orderId: req.params.id,
+      reason: req.body.reason,
+      userId: req.user.id,
+      userRole: req.user.role,
+      userEmail: req.userDetails.email
+    });
+    
+    const { reason } = req.body;
     const order = await Order.findById(req.params.id);
     
     if (!order) {
@@ -418,7 +446,6 @@ router.patch('/:id/cancel', async (req, res) => {
         message: 'Order not found'
       });
     }
-    
     // Check if order can be cancelled
     if (['Delivered', 'Cancelled'].includes(order.status)) {
       return res.status(400).json({
@@ -426,18 +453,86 @@ router.patch('/:id/cancel', async (req, res) => {
         message: 'Order cannot be cancelled'
       });
     }
+    // Authorization: Only customer or vendor can cancel
+    const userId = req.user.id;
+    const userRole = req.user.role;
+    let allowed = false;
     
+    console.log('Authorization check:', {
+      userRole,
+      orderCustomerEmail: order.customerInfo?.email,
+      userEmail: req.userDetails.email,
+      orderRestaurantId: order.restaurantId
+    });
+    
+    if (userRole === 'customer' && order.customerInfo && req.userDetails.email && order.customerInfo.email === req.userDetails.email) {
+      allowed = true;
+      console.log('Customer authorization granted');
+    }
+    
+    if (userRole === 'vendor') {
+      // Find vendor for this restaurant
+      const restaurant = await Restaurant.findById(order.restaurantId);
+      console.log('Vendor check:', {
+        restaurantFound: !!restaurant,
+        restaurantVendorId: restaurant?.vendorId,
+        userId,
+        match: restaurant?.vendorId?.toString() === userId
+      });
+      
+      if (restaurant && restaurant.vendorId && restaurant.vendorId.toString() === userId) {
+        allowed = true;
+        console.log('Vendor authorization granted');
+      }
+    }
+    
+    if (!allowed) {
+      console.log('Authorization denied');
+      return res.status(403).json({
+        success: false,
+        message: 'You are not authorized to cancel this order.'
+      });
+    }
+    
+    console.log('Authorization granted, proceeding with cancellation');
+    // Save cancellation reason
+    order.cancellationReason = reason || null;
     await order.updateStatus('Cancelled');
+    await order.save();
+    
+    // Send push notification to customer about order cancellation
+    if (order.customerInfo && order.customerInfo.email) {
+      try {
+        const customer = await Customer.findOne({ email: order.customerInfo.email });
+        
+        if (customer && customer.pushToken) {
+          const restaurant = await Restaurant.findById(order.restaurantId);
+          const restaurantName = restaurant ? restaurant.name : 'Restaurant';
+          
+          await pushNotificationService.sendOrderStatusUpdate(
+            customer.pushToken,
+            order.orderId,
+            'Cancelled',
+            restaurantName
+          );
+          
+          console.log(`Push notification sent for order ${order.orderId} cancellation`);
+        }
+      } catch (notificationError) {
+        console.error('Error sending cancellation notification:', notificationError);
+        // Don't fail the request if notification fails
+      }
+    }
     
     res.json({
       success: true,
       message: 'Order cancelled successfully',
       data: {
         orderId: order.orderId,
-        status: order.status
+        status: order.status,
+        cancellationReason: order.cancellationReason
       }
     });
-    
   } catch (error) {
     console.error('Error cancelling order:', error);
     res.status(500).json({

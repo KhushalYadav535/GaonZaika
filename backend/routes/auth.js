@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { body, validationResult } = require('express-validator');
 const authController = require('../controllers/authController');
+const { verifyToken } = require('../middleware/auth');
 
 // Validation middleware
 const validateRegistration = (role) => {
@@ -67,6 +68,17 @@ router.post('/pin-login', [
   body('pin').isLength({ min: 4, max: 6 }).withMessage('PIN must be 4-6 digits'),
   body('role').isIn(['vendor', 'delivery', 'admin']).withMessage('Valid role is required')
 ], authController.loginWithPIN);
+
+// Forgot/Reset Password (all roles except admin)
+router.post('/forgot-password', authController.forgotPassword);
+router.post('/reset-password', authController.resetPassword);
+
+// Email Verification (all roles except admin)
+router.post('/send-verification-otp', authController.sendVerificationOTP);
+router.post('/verify-email-otp', authController.verifyEmailOTP);
+
+// Token validation (protected route)
+router.get('/validate-token', verifyToken, authController.validateToken);
 
 // Health check for auth routes
 router.get('/health', (req, res) => {

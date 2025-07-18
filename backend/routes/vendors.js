@@ -9,6 +9,301 @@ const { verifyToken, getUser, requireVendor } = require('../middleware/auth');
 const { uploadImage } = require('../middleware/uploadMiddleware');
 const { deleteImage } = require('../config/cloudinary');
 
+// Toggle vendor live status
+router.patch('/:id/toggle-live', verifyToken, getUser, requireVendor, async (req, res) => {
+  try {
+    const vendor = await Vendor.findById(req.params.id);
+    
+    if (!vendor) {
+      return res.status(404).json({
+        success: false,
+        message: 'Vendor not found'
+      });
+    }
+    
+    // Check if vendor is authorized to toggle this status
+    if (vendor._id.toString() !== req.user.id) {
+      return res.status(403).json({
+        success: false,
+        message: 'Not authorized to toggle this vendor status'
+      });
+    }
+    
+    await vendor.toggleLiveStatus();
+    
+    res.json({
+      success: true,
+      message: vendor.isLive ? 'Vendor is now live!' : 'Vendor is now offline',
+      data: {
+        isLive: vendor.isLive,
+        lastLiveToggle: vendor.lastLiveToggle,
+        restaurant: {
+          isOpen: vendor.isLive
+        }
+      }
+    });
+    
+  } catch (error) {
+    console.error('Error toggling vendor live status:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to toggle live status'
+    });
+  }
+});
+
+// Go live endpoint
+router.patch('/:id/go-live', verifyToken, getUser, requireVendor, async (req, res) => {
+  try {
+    const vendor = await Vendor.findById(req.params.id);
+    
+    if (!vendor) {
+      return res.status(404).json({
+        success: false,
+        message: 'Vendor not found'
+      });
+    }
+    
+    if (vendor._id.toString() !== req.user.id) {
+      return res.status(403).json({
+        success: false,
+        message: 'Not authorized'
+      });
+    }
+    
+    await vendor.goLive();
+    
+    res.json({
+      success: true,
+      message: 'Vendor is now live! Restaurant is open for orders.',
+      data: {
+        isLive: vendor.isLive,
+        lastLiveToggle: vendor.lastLiveToggle,
+        restaurant: {
+          isOpen: true
+        }
+      }
+    });
+    
+  } catch (error) {
+    console.error('Error going live:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to go live'
+    });
+  }
+});
+
+// Go offline endpoint
+router.patch('/:id/go-offline', verifyToken, getUser, requireVendor, async (req, res) => {
+  try {
+    const vendor = await Vendor.findById(req.params.id);
+    
+    if (!vendor) {
+      return res.status(404).json({
+        success: false,
+        message: 'Vendor not found'
+      });
+    }
+    
+    if (vendor._id.toString() !== req.user.id) {
+      return res.status(403).json({
+        success: false,
+        message: 'Not authorized'
+      });
+    }
+    
+    await vendor.goOffline();
+    
+    res.json({
+      success: true,
+      message: 'Vendor is now offline. Restaurant is closed for orders.',
+      data: {
+        isLive: vendor.isLive,
+        lastLiveToggle: vendor.lastLiveToggle,
+        restaurant: {
+          isOpen: false
+        }
+      }
+    });
+    
+  } catch (error) {
+    console.error('Error going offline:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to go offline'
+    });
+  }
+});
+
+// Get vendor live status
+router.get('/:id/live-status', verifyToken, getUser, requireVendor, async (req, res) => {
+  try {
+    const vendor = await Vendor.findById(req.params.id).populate('restaurantId');
+    
+    if (!vendor) {
+      return res.status(404).json({
+        success: false,
+        message: 'Vendor not found'
+      });
+    }
+    
+    if (vendor._id.toString() !== req.user.id) {
+      return res.status(403).json({
+        success: false,
+        message: 'Not authorized'
+      });
+    }
+    
+    res.json({
+      success: true,
+      data: {
+        isLive: vendor.isLive,
+        lastLiveToggle: vendor.lastLiveToggle,
+        restaurant: {
+          isOpen: vendor.restaurantId?.isOpen || false,
+          name: vendor.restaurantId?.name
+        }
+      }
+    });
+    
+  } catch (error) {
+    console.error('Error getting vendor live status:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get live status'
+    });
+  }
+});
+
+// Upload restaurant image
+router.post('/:id/restaurant-image', verifyToken, getUser, requireVendor, uploadImage, async (req, res) => {
+  try {
+    const vendor = await Vendor.findById(req.params.id).populate('restaurantId');
+    
+    if (!vendor) {
+      return res.status(404).json({
+        success: false,
+        message: 'Vendor not found'
+      });
+    }
+    
+    if (vendor._id.toString() !== req.user.id) {
+      return res.status(403).json({
+        success: false,
+        message: 'Not authorized'
+      });
+    }
+
+    if (!vendor.restaurantId) {
+      return res.status(404).json({
+        success: false,
+        message: 'Restaurant not found'
+      });
+    }
+
+    if (!req.imageInfo) {
+      return res.status(400).json({
+        success: false,
+        message: 'No image uploaded'
+      });
+    }
+
+    // Delete old image if exists
+    if (vendor.restaurantId.image) {
+      try {
+        await deleteImage(vendor.restaurantId.image);
+      } catch (error) {
+        console.error('Error deleting old restaurant image:', error);
+      }
+    }
+
+    // Update restaurant image
+    vendor.restaurantId.image = req.imageInfo.url;
+    await vendor.restaurantId.save();
+
+    res.json({
+      success: true,
+      message: 'Restaurant image updated successfully',
+      data: {
+        imageUrl: req.imageInfo.url,
+        restaurant: {
+          id: vendor.restaurantId._id,
+          name: vendor.restaurantId.name,
+          image: vendor.restaurantId.image
+        }
+      }
+    });
+    
+  } catch (error) {
+    console.error('Error uploading restaurant image:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to upload restaurant image'
+    });
+  }
+});
+
+// Delete restaurant image
+router.delete('/:id/restaurant-image', verifyToken, getUser, requireVendor, async (req, res) => {
+  try {
+    const vendor = await Vendor.findById(req.params.id).populate('restaurantId');
+    
+    if (!vendor) {
+      return res.status(404).json({
+        success: false,
+        message: 'Vendor not found'
+      });
+    }
+    
+    if (vendor._id.toString() !== req.user.id) {
+      return res.status(403).json({
+        success: false,
+        message: 'Not authorized'
+      });
+    }
+
+    if (!vendor.restaurantId) {
+      return res.status(404).json({
+        success: false,
+        message: 'Restaurant not found'
+      });
+    }
+
+    // Delete image from Cloudinary if exists
+    if (vendor.restaurantId.image) {
+      try {
+        await deleteImage(vendor.restaurantId.image);
+      } catch (error) {
+        console.error('Error deleting restaurant image:', error);
+      }
+    }
+
+    // Remove image from restaurant
+    vendor.restaurantId.image = null;
+    await vendor.restaurantId.save();
+
+    res.json({
+      success: true,
+      message: 'Restaurant image removed successfully',
+      data: {
+        restaurant: {
+          id: vendor.restaurantId._id,
+          name: vendor.restaurantId.name,
+          image: null
+        }
+      }
+    });
+    
+  } catch (error) {
+    console.error('Error deleting restaurant image:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to delete restaurant image'
+    });
+  }
+});
+
 // Vendor login with PIN
 router.post('/login', [
   body('pin').isLength({ min: 4, max: 6 }).withMessage('PIN must be 4-6 digits')

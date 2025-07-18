@@ -28,10 +28,55 @@ router.get('/', async (req, res) => {
     if (isOpen !== undefined) {
       query.isOpen = isOpen === 'true';
     }
+
+    // If filtering for open restaurants, also check if vendor is live
+    if (isOpen === 'true') {
+      const Vendor = require('../models/Vendor');
+      const liveVendors = await Vendor.find({ isLive: true }).select('restaurantId');
+      const liveRestaurantIds = liveVendors.map(v => v.restaurantId);
+      query._id = { $in: liveRestaurantIds };
+    }
+    
+    // If not filtering by isOpen, still check vendor live status but don't filter out
+    if (isOpen === undefined) {
+      const Vendor = require('../models/Vendor');
+      const allVendors = await Vendor.find().select('restaurantId isLive');
+      
+      if (allVendors.length > 0) {
+        const liveRestaurantIds = allVendors.filter(v => v.isLive && v.restaurantId).map(v => v.restaurantId);
+        const offlineRestaurantIds = allVendors.filter(v => !v.isLive && v.restaurantId).map(v => v.restaurantId);
+        
+        // We'll handle the isOpen status in the response transformation
+        if (liveRestaurantIds.length > 0 || offlineRestaurantIds.length > 0) {
+          query._id = { $in: [...liveRestaurantIds, ...offlineRestaurantIds] };
+        }
+      }
+      // If no vendors found, show all restaurants (fallback)
+    }
     
     const restaurants = await Restaurant.find(query)
       .select('name cuisine rating deliveryTime minOrder image isOpen totalRatings')
       .sort({ rating: -1, totalRatings: -1 });
+
+    // If not filtering by isOpen, update the isOpen status based on vendor's live status
+    if (isOpen === undefined) {
+      const Vendor = require('../models/Vendor');
+      const allVendors = await Vendor.find().select('restaurantId isLive');
+      const vendorMap = {};
+      allVendors.forEach(v => {
+        if (v.restaurantId) {
+          vendorMap[v.restaurantId.toString()] = v.isLive;
+        }
+      });
+
+      // Update restaurant isOpen status based on vendor's live status
+      restaurants.forEach(restaurant => {
+        const vendorIsLive = vendorMap[restaurant._id.toString()];
+        if (vendorIsLive !== undefined) {
+          restaurant.isOpen = vendorIsLive;
+        }
+      });
+    }
     
     res.json({
       success: true,
@@ -93,6 +138,35 @@ router.get('/nearby', [
     if (cuisine) filters.cuisine = cuisine;
     if (isOpen !== undefined) filters.isOpen = isOpen === 'true';
 
+    // If filtering for open restaurants, also check if vendor is live
+    if (isOpen === 'true') {
+      const Vendor = require('../models/Vendor');
+      const liveVendors = await Vendor.find({ isLive: true }).select('restaurantId');
+      const liveRestaurantIds = liveVendors.map(v => v.restaurantId);
+      filters.liveRestaurantIds = liveRestaurantIds;
+    }
+    
+    // If not filtering by isOpen, include all restaurants but mark their status
+    if (isOpen === undefined) {
+      const Vendor = require('../models/Vendor');
+      const allVendors = await Vendor.find().select('restaurantId isLive');
+      
+      if (allVendors.length > 0) {
+        const liveRestaurantIds = allVendors.filter(v => v.isLive && v.restaurantId).map(v => v.restaurantId);
+        const offlineRestaurantIds = allVendors.filter(v => !v.isLive && v.restaurantId).map(v => v.restaurantId);
+        if (liveRestaurantIds.length > 0 || offlineRestaurantIds.length > 0) {
+          filters.allRestaurantIds = [...liveRestaurantIds, ...offlineRestaurantIds];
+        }
+        filters.vendorLiveStatus = {};
+        allVendors.forEach(v => {
+          if (v.restaurantId) {
+            filters.vendorLiveStatus[v.restaurantId.toString()] = v.isLive;
+          }
+        });
+      }
+      // If no vendors found, show all restaurants (fallback)
+    }
+
     // Convert radius from km to meters for MongoDB geospatial query
     const maxDistance = parseFloat(radius) * 1000;
 
@@ -129,6 +203,12 @@ router.get('/nearby', [
       const estimatedDeliveryTime = calculateDeliveryTime(distance, restaurant.deliveryTime.min);
       const deliveryFee = calculateDeliveryFee(distance, restaurant.deliveryFee);
 
+      // Determine if restaurant is open based on vendor live status
+      let isOpen = restaurant.isOpen || false;
+      if (filters.vendorLiveStatus && filters.vendorLiveStatus[restaurant._id.toString()] !== undefined) {
+        isOpen = filters.vendorLiveStatus[restaurant._id.toString()];
+      }
+
       return {
         id: restaurant._id,
         name: restaurant.name,
@@ -139,7 +219,7 @@ router.get('/nearby', [
         minOrder: restaurant.minOrder || 100,
         deliveryFee: deliveryFee,
         image: restaurant.image || 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=400',
-        isOpen: restaurant.isOpen || false,
+        isOpen: isOpen,
         distance: formatDistance(distance),
         distanceKm: distance,
         address: restaurant.address.fullAddress || restaurant.address.street,

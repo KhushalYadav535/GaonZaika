@@ -74,6 +74,26 @@ const vendorSchema = new mongoose.Schema({
   pushToken: {
     type: String,
     default: null
+  },
+  resetPasswordOTP: {
+    code: String,
+    expiresAt: Date
+  },
+  isEmailVerified: {
+    type: Boolean,
+    default: false
+  },
+  emailVerificationOTP: {
+    code: String,
+    expiresAt: Date
+  },
+  isLive: {
+    type: Boolean,
+    default: false
+  },
+  lastLiveToggle: {
+    type: Date,
+    default: null
   }
 }, {
   timestamps: true
@@ -130,6 +150,54 @@ vendorSchema.methods.updateLastLogin = function() {
 // Static method to find active vendors
 vendorSchema.statics.findActive = function() {
   return this.find({ isActive: true }).populate('restaurantId');
+};
+
+// Method to toggle live status
+vendorSchema.methods.toggleLiveStatus = async function() {
+  this.isLive = !this.isLive;
+  this.lastLiveToggle = new Date();
+  
+  // Update restaurant's isOpen status based on vendor's live status
+  if (this.restaurantId) {
+    const Restaurant = require('./Restaurant');
+    await Restaurant.findByIdAndUpdate(this.restaurantId, {
+      isOpen: this.isLive
+    });
+  }
+  
+  return this.save();
+};
+
+// Method to go live
+vendorSchema.methods.goLive = async function() {
+  this.isLive = true;
+  this.lastLiveToggle = new Date();
+  
+  // Update restaurant's isOpen status
+  if (this.restaurantId) {
+    const Restaurant = require('./Restaurant');
+    await Restaurant.findByIdAndUpdate(this.restaurantId, {
+      isOpen: true
+    });
+  }
+  
+  return this.save();
+};
+
+// Method to go offline
+vendorSchema.methods.goOffline = async function() {
+  this.isLive = false;
+  this.lastLiveToggle = new Date();
+  
+  // Update restaurant's isOpen status
+  if (this.restaurantId) {
+    const Restaurant = require('./Restaurant');
+    await Restaurant.findByIdAndUpdate(this.restaurantId, {
+      isOpen: false
+    });
+  }
+  
+  return this.save();
 };
 
 // Virtual for formatted address

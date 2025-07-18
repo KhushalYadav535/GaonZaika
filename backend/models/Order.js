@@ -122,6 +122,11 @@ const orderSchema = new mongoose.Schema({
   isActive: {
     type: Boolean,
     default: true
+  },
+  cancellationReason: {
+    type: String,
+    trim: true,
+    default: null
   }
 }, {
   timestamps: true

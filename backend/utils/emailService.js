@@ -204,8 +204,49 @@ const sendOrderStatusUpdate = async (email, orderData, newStatus) => {
   }
 };
 
+// Send email verification OTP
+const sendVerificationOTP = async (email, otp) => {
+  try {
+    const transporter = createTransporter();
+    const mailOptions = {
+      from: process.env.EMAIL_USER || 'gaonzaika@gmail.com',
+      to: email,
+      subject: 'Gaon Zaika - Email Verification OTP',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <div style="background-color: #4CAF50; color: white; padding: 20px; text-align: center;">
+            <h1>Gaon Zaika</h1>
+            <p>Village Food Delivery</p>
+          </div>
+          <div style="padding: 20px; background-color: #f9f9f9;">
+            <h2>Email Verification OTP</h2>
+            <p>Hello!</p>
+            <p>Your email verification OTP is:</p>
+            <div style="background-color: white; border: 2px solid #4CAF50; border-radius: 8px; padding: 20px; text-align: center; margin: 20px 0;">
+              <h1 style="color: #4CAF50; font-size: 32px; margin: 0; letter-spacing: 8px;">${otp}</h1>
+            </div>
+            <p>This OTP is valid for 10 minutes. Please enter it in the app to verify your email address.</p>
+            <p>If you did not request this, please ignore this email.</p>
+            <p>Thank you for choosing Gaon Zaika!</p>
+          </div>
+          <div style="background-color: #333; color: white; padding: 20px; text-align: center;">
+            <p>&copy; 2024 Gaon Zaika. All rights reserved.</p>
+          </div>
+        </div>
+      `
+    };
+    const info = await transporter.sendMail(mailOptions);
+    console.log('Verification OTP email sent:', info.messageId);
+    return true;
+  } catch (error) {
+    console.error('Error sending verification OTP email:', error);
+    return false;
+  }
+};
+
 module.exports = {
   sendOTP,
   sendOrderConfirmation,
-  sendOrderStatusUpdate
+  sendOrderStatusUpdate,
+  sendVerificationOTP
 }; 

@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TextInput, TouchableOpacity, SafeAreaView, Aler
 import { MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import apiService from '../../services/apiService';
+import { navigateAfterLogin } from '../../utils/navigationUtils';
 
 const DeliveryLoginScreen = ({ navigation }) => {
   const [email, setEmail] = useState('');
@@ -26,7 +27,10 @@ const DeliveryLoginScreen = ({ navigation }) => {
         await AsyncStorage.setItem('deliveryData', JSON.stringify(deliveryPerson));
         
         console.log('Delivery login successful:', deliveryPerson);
-        navigation.replace('DeliveryTabs');
+        const success = navigateAfterLogin(navigation, 'DeliveryTabs');
+        if (!success) {
+          console.error('Failed to navigate to DeliveryTabs');
+        }
       } else {
         Alert.alert('Error', 'Invalid credentials. Please try again.');
       }

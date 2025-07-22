@@ -15,6 +15,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import apiService from '../../services/apiService';
 import usePushNotifications from '../../hooks/usePushNotifications';
+import { useNavigation } from '@react-navigation/native';
 
 const OrderStatusScreen = () => {
   const [orders, setOrders] = useState([]);
@@ -25,6 +26,8 @@ const OrderStatusScreen = () => {
   const [cancelReason, setCancelReason] = useState('');
   const [cancelOrderId, setCancelOrderId] = useState(null);
   const [autoRefresh, setAutoRefresh] = useState(true); // Enable auto-refresh by default
+  const navigation = useNavigation();
+  const [notLoggedIn, setNotLoggedIn] = useState(false);
 
   useEffect(() => {
     loadOrders();
@@ -67,8 +70,14 @@ const OrderStatusScreen = () => {
       if (!customerId) {
         console.log('No customer ID available');
         setOrders([]);
+        setNotLoggedIn(true);
+        // Optionally redirect to login after 2 seconds
+        setTimeout(() => {
+          navigation.reset({ index: 0, routes: [{ name: 'CustomerAuth' }] });
+        }, 2000);
         return;
       }
+      setNotLoggedIn(false);
       
       const response = await apiService.getOrders('customer', customerId);
       console.log('Orders API response:', response.data);
@@ -223,6 +232,19 @@ const OrderStatusScreen = () => {
       )}
     </TouchableOpacity>
   );
+
+  if (notLoggedIn) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <MaterialIcons name="error-outline" size={48} color="#FF9800" />
+          <Text style={{ fontSize: 18, color: '#666', marginTop: 16, textAlign: 'center' }}>
+            Please login to view your orders.
+          </Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>

@@ -169,10 +169,10 @@ const connectDB = async () => {
     await Admin.createDefaultAdmin();
     
     // Seed sample data for testing
-    if (process.env.NODE_ENV === 'development') {
-      const seedData = require('./seedData');
-      await seedData();
-    }
+    // if (process.env.NODE_ENV === 'development') {
+    //   const seedData = require('./seedData');
+    //   await seedData();
+    // }
     
   } catch (error) {
     console.error('MongoDB connection error:', error);

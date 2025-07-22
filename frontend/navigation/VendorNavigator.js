@@ -98,6 +98,8 @@ const VendorNavigator = ({ route }) => {
       <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
       <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
       <Stack.Screen name="EmailVerification" component={EmailVerificationScreen} />
+      <Stack.Screen name="SalesAnalytics" component={SalesAnalyticsScreen} />
+      <Stack.Screen name="ReviewsRatings" component={ReviewsRatingsScreen} />
     </Stack.Navigator>
   );
 };

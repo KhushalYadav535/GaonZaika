@@ -23,7 +23,6 @@ const Stack = createStackNavigator();
 export default function App() {
   const [isLoading, setIsLoading] = useState(true);
   const [initialRoute, setInitialRoute] = useState('RoleSelection');
-  const [initialParams, setInitialParams] = useState({});
 
   useEffect(() => {
     checkAuthenticationStatus();
@@ -40,26 +39,20 @@ export default function App() {
       // Determine which role is authenticated
       if (customerToken && customerToken.trim()) {
         setInitialRoute('Customer');
-        setInitialParams({ screen: 'CustomerTabs' });
       } else if (vendorToken && vendorToken.trim()) {
         setInitialRoute('Vendor');
-        setInitialParams({ screen: 'VendorTabs' });
       } else if (deliveryToken && deliveryToken.trim()) {
         setInitialRoute('Delivery');
-        setInitialParams({ screen: 'DeliveryTabs' });
       } else if (adminToken && adminToken.trim()) {
         setInitialRoute('Admin');
-        setInitialParams({ screen: 'AdminTabs' });
       } else {
         // No valid token found, show role selection
         setInitialRoute('RoleSelection');
-        setInitialParams({});
       }
     } catch (error) {
       console.error('Error checking authentication status:', error);
       // On error, default to role selection
       setInitialRoute('RoleSelection');
-      setInitialParams({});
     } finally {
       // Add a small delay for smooth transition
       setTimeout(() => {
@@ -84,26 +77,10 @@ export default function App() {
             initialRouteName={initialRoute}
           >
             <Stack.Screen name="RoleSelection" component={RoleSelectionScreen} />
-            <Stack.Screen 
-              name="Customer" 
-              component={CustomerNavigator}
-              initialParams={initialRoute === 'Customer' ? initialParams : {}}
-            />
-            <Stack.Screen 
-              name="Vendor" 
-              component={VendorNavigator}
-              initialParams={initialRoute === 'Vendor' ? initialParams : {}}
-            />
-            <Stack.Screen 
-              name="Delivery" 
-              component={DeliveryNavigator}
-              initialParams={initialRoute === 'Delivery' ? initialParams : {}}
-            />
-            <Stack.Screen 
-              name="Admin" 
-              component={AdminNavigator}
-              initialParams={initialRoute === 'Admin' ? initialParams : {}}
-            />
+            <Stack.Screen name="Customer" component={CustomerNavigator} />
+            <Stack.Screen name="Vendor" component={VendorNavigator} />
+            <Stack.Screen name="Delivery" component={DeliveryNavigator} />
+            <Stack.Screen name="Admin" component={AdminNavigator} />
           </Stack.Navigator>
         </NavigationContainer>
       </NetworkStatus>

@@ -133,7 +133,10 @@ const DeliveryOTPScreen = () => {
               text: 'View Orders',
               onPress: () => {
                 // Navigate to delivery tabs and focus on Orders tab
-                navigation.navigate('DeliveryTabs', { screen: 'Orders' });
+                navigation.reset({
+                  index: 0,
+                  routes: [{ name: 'DeliveryTabs' }],
+                });
               }
             }
           ]

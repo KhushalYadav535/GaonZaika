@@ -17,6 +17,7 @@ import { apiService } from '../../services/apiService';
 import locationService from '../../services/locationService';
 import LocationSettingsModal from '../../components/LocationSettingsModal';
 import { getRestaurantImageUrl } from '../../utils/imageUtils';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const CustomerHomeScreen = ({ navigation }) => {
   const [restaurants, setRestaurants] = useState([]);
@@ -28,14 +29,30 @@ const CustomerHomeScreen = ({ navigation }) => {
   const [userLocation, setUserLocation] = useState(null);
   const [searchRadius, setSearchRadius] = useState(10); // Default 10km radius
   const [showLocationModal, setShowLocationModal] = useState(false);
+  const [customerName, setCustomerName] = useState('');
+  const [categories, setCategories] = useState([]);
+  const [selectedCategory, setSelectedCategory] = useState(null);
 
   useEffect(() => {
+    // Load customer name for greeting
+    const loadCustomerName = async () => {
+      try {
+        const customerData = await AsyncStorage.getItem('customerData');
+        if (customerData) {
+          const parsedData = JSON.parse(customerData);
+          setCustomerName(parsedData.name || '');
+        }
+      } catch (error) {
+        setCustomerName('');
+      }
+    };
+    loadCustomerName();
     initializeLocationAndLoadRestaurants();
   }, []);
 
   useEffect(() => {
     filterRestaurants();
-  }, [searchQuery, restaurants]);
+  }, [searchQuery, restaurants, selectedCategory]);
 
   const initializeLocationAndLoadRestaurants = async () => {
     try {
@@ -101,14 +118,21 @@ const CustomerHomeScreen = ({ navigation }) => {
         
         console.log('Transformed nearby restaurants:', transformedRestaurants);
         setRestaurants(transformedRestaurants);
+        // Extract unique cuisines for category chips (no 'All')
+        const uniqueCuisines = [
+          ...new Set(transformedRestaurants.map(r => r.cuisine).filter(cuisine => cuisine && cuisine.toLowerCase() !== 'mixed'))
+        ];
+        setCategories(uniqueCuisines);
       } else {
         setRestaurants([]);
+        setCategories([]);
         Alert.alert('Error', 'Failed to load nearby restaurants');
       }
     } catch (error) {
       console.error('Error loading nearby restaurants:', error);
       console.error('Error details:', error.response?.data);
       setRestaurants([]);
+      setCategories([]);
       Alert.alert('Error', 'Failed to connect to server. Please check your internet connection.');
     } finally {
       setLoading(false);
@@ -155,15 +179,17 @@ const CustomerHomeScreen = ({ navigation }) => {
   };
 
   const filterRestaurants = () => {
-    if (!searchQuery.trim()) {
-      setFilteredRestaurants(restaurants);
-    } else {
-      const filtered = restaurants.filter(restaurant =>
+    let filtered = restaurants;
+    if (selectedCategory) {
+      filtered = filtered.filter(r => r.cuisine === selectedCategory);
+    }
+    if (searchQuery.trim()) {
+      filtered = filtered.filter(restaurant =>
         restaurant.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         restaurant.cuisine.toLowerCase().includes(searchQuery.toLowerCase())
       );
-      setFilteredRestaurants(filtered);
     }
+    setFilteredRestaurants(filtered);
   };
 
   const onRefresh = async () => {
@@ -251,7 +277,7 @@ const CustomerHomeScreen = ({ navigation }) => {
             <Text style={styles.rating}>{item.rating}</Text>
           </View>
         </View>
-        <Text style={styles.cuisine}>{item.cuisine}</Text>
+        <Text style={styles.cuisine}>{item.cuisine && item.cuisine.toLowerCase() !== 'mixed' ? item.cuisine : ''}</Text>
         
         {/* Distance and Address */}
         <View style={styles.locationInfo}>
@@ -312,6 +338,42 @@ const CustomerHomeScreen = ({ navigation }) => {
 
   return (
     <SafeAreaView style={styles.container}>
+      {/* Personalized Greeting */}
+      <View style={styles.greetingContainer}>
+        <Text style={styles.greetingText}>
+          {customerName ? `Hello, ${customerName.split(' ')[0]}!` : 'Welcome!'}
+        </Text>
+        <Text style={styles.greetingSubtext}>What would you like to eat today?</Text>
+      </View>
+
+      {/* Category Chips */}
+      <View style={styles.categoryChipsContainer}>
+        <FlatList
+          data={categories}
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          keyExtractor={(item) => item}
+          renderItem={({ item }) => (
+            <TouchableOpacity
+              style={[
+                styles.categoryChip,
+                selectedCategory === item && styles.selectedCategoryChip
+              ]}
+              onPress={() => setSelectedCategory(item === selectedCategory ? null : item)}
+            >
+              <Text
+                style={[
+                  styles.categoryChipText,
+                  selectedCategory === item && styles.selectedCategoryChipText
+                ]}
+              >
+                {item}
+              </Text>
+            </TouchableOpacity>
+          )}
+        />
+      </View>
+
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Restaurants</Text>
         <Text style={styles.headerSubtitle}>
@@ -408,6 +470,46 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#666',
   },
+  greetingContainer: {
+    padding: 20,
+    paddingTop: 40,
+    backgroundColor: '#4CAF50',
+  },
+  greetingText: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: 'white',
+    marginBottom: 4,
+  },
+  greetingSubtext: {
+    fontSize: 14,
+    color: 'rgba(255, 255, 255, 0.8)',
+  },
+  categoryChipsContainer: {
+    paddingHorizontal: 16,
+    paddingBottom: 10,
+  },
+  categoryChip: {
+    backgroundColor: '#e0e0e0',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    marginRight: 8,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+  },
+  selectedCategoryChip: {
+    backgroundColor: '#4CAF50',
+    borderColor: '#4CAF50',
+  },
+  categoryChipText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#333',
+  },
+  selectedCategoryChipText: {
+    color: 'white',
+  },
   header: {
     backgroundColor: '#4CAF50',
     padding: 20,
@@ -469,14 +571,15 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   restaurantCard: {
-    backgroundColor: 'white',
+    backgroundColor: '#f5f5f5', // match app background
     borderRadius: 12,
     marginBottom: 16,
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    // Remove elevation and shadow
+    // elevation: 3,
+    // shadowColor: '#000',
+    // shadowOffset: { width: 0, height: 2 },
+    // shadowOpacity: 0.1,
+    // shadowRadius: 4,
     overflow: 'hidden',
   },
   closedRestaurantCard: {

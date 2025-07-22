@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, SafeAreaView, Alert } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import apiService from '../../services/apiService';
+import { navigateAfterLogin } from '../../utils/navigationUtils';
 
 const AdminLoginScreen = ({ navigation }) => {
   const [pin, setPin] = useState('');
@@ -16,7 +17,10 @@ const AdminLoginScreen = ({ navigation }) => {
       setLoading(true);
       const response = await apiService.adminLogin(pin);
       if (response.data.success) {
-        navigation.replace('AdminTabs');
+        const success = navigateAfterLogin(navigation, 'AdminTabs');
+        if (!success) {
+          console.error('Failed to navigate to AdminTabs');
+        }
       } else {
         Alert.alert('Error', 'Invalid PIN. Please try again.');
       }

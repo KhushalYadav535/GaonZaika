@@ -13,6 +13,7 @@ import {
 import { MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import apiService from '../../services/apiService';
+import { safeNavigate, debugNavigation, navigateAfterLogin } from '../../utils/navigationUtils';
 
 const { width } = Dimensions.get('window');
 
@@ -53,7 +54,12 @@ const DeliveryAuthScreen = ({ navigation }) => {
           
           console.log('Delivery login successful:', deliveryPerson);
           Alert.alert('Success', 'Login successful!');
-          navigation.replace('DeliveryTabs');
+          
+          // Use simple navigation for production builds
+          const success = navigateAfterLogin(navigation, 'DeliveryTabs');
+          if (!success) {
+            console.error('Failed to navigate to DeliveryTabs');
+          }
         } else {
           Alert.alert('Error', response.data.message || 'Login failed');
         }

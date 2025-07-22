@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -13,6 +13,9 @@ import {
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useNavigation } from '@react-navigation/native';
+import * as Location from 'expo-location';
+import apiService from '../../services/apiService';
 
 const DeliveryProfileScreen = ({ navigation }) => {
   // Profile state
@@ -22,6 +25,7 @@ const DeliveryProfileScreen = ({ navigation }) => {
     email: 'amit.kumar@example.com',
     phone: '+91 98765 43210',
     vehicle: 'DL-01-AB-1234',
+    address: '', // Added address field
   });
   // Vehicle
   const [vehicleVisible, setVehicleVisible] = useState(false);
@@ -57,6 +61,70 @@ const DeliveryProfileScreen = ({ navigation }) => {
   const [issueVisible, setIssueVisible] = useState(false);
   const [issueSubject, setIssueSubject] = useState('');
   const [issueMessage, setIssueMessage] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [notLoggedIn, setNotLoggedIn] = useState(false);
+  const nav = useNavigation();
+  const [locationLoading, setLocationLoading] = useState(false);
+
+  useEffect(() => {
+    const fetchProfile = async () => {
+      setLoading(true);
+      setNotLoggedIn(false);
+      try {
+        const data = await AsyncStorage.getItem('deliveryData');
+        if (data) {
+          const delivery = JSON.parse(data);
+          setProfile({
+            name: delivery.name || '',
+            email: delivery.email || '',
+            phone: delivery.phone || '',
+            vehicle: delivery.vehicleDetails?.number || '',
+            address: delivery.address?.fullAddress || delivery.address?.city || '', // Set address
+          });
+          setVehicle({
+            number: delivery.vehicleDetails?.number || '',
+            type: delivery.vehicleDetails?.type || '',
+          });
+        } else {
+          setNotLoggedIn(true);
+          setTimeout(() => {
+            nav.reset({ index: 0, routes: [{ name: 'DeliveryAuth' }] });
+          }, 2000);
+        }
+      } catch (e) {
+        setNotLoggedIn(true);
+        setTimeout(() => {
+          nav.reset({ index: 0, routes: [{ name: 'DeliveryAuth' }] });
+        }, 2000);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchProfile();
+  }, []);
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <MaterialIcons name="delivery-dining" size={48} color="#2196F3" />
+          <Text style={{ fontSize: 18, color: '#666', marginTop: 16 }}>Loading profile...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+  if (notLoggedIn) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <MaterialIcons name="error-outline" size={48} color="#FF9800" />
+          <Text style={{ fontSize: 18, color: '#666', marginTop: 16, textAlign: 'center' }}>
+            Please login to view your profile.
+          </Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   const handleLogout = () => {
     Alert.alert(
@@ -109,6 +177,51 @@ const DeliveryProfileScreen = ({ navigation }) => {
   };
   const removeArea = (id) => setAreas(areas.filter(a => a.id !== id));
 
+  // Add setLocationHandler
+  const setLocationHandler = async () => {
+    setLocationLoading(true);
+    try {
+      // Get delivery person ID
+      const data = await AsyncStorage.getItem('deliveryData');
+      const delivery = data ? JSON.parse(data) : null;
+      if (!delivery?.id) {
+        Alert.alert('Error', 'Delivery person ID not found');
+        setLocationLoading(false);
+        return;
+      }
+      // Ask for location permission
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission Denied', 'Location permission is required to set your location.');
+        setLocationLoading(false);
+        return;
+      }
+      // Get current location
+      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Highest });
+      const latitude = loc.coords.latitude;
+      const longitude = loc.coords.longitude;
+      // Call API to update location
+      const response = await apiService.updateDeliveryLocation(delivery.id, latitude, longitude);
+      if (response.data && response.data.success) {
+        // Reverse geocode to get address
+        const geo = await Location.reverseGeocodeAsync({ latitude, longitude });
+        let addressString = '';
+        if (geo && geo.length > 0) {
+          const addr = geo[0];
+          addressString = [addr.name, addr.street, addr.city, addr.region, addr.postalCode, addr.country].filter(Boolean).join(', ');
+        }
+        setProfile((prev) => ({ ...prev, address: addressString }));
+        Alert.alert('Success', 'Location updated successfully!');
+      } else {
+        Alert.alert('Error', 'Failed to update location');
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Failed to update location. Please try again.');
+    } finally {
+      setLocationLoading(false);
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
@@ -137,7 +250,7 @@ const DeliveryProfileScreen = ({ navigation }) => {
           </TouchableOpacity>
           <TouchableOpacity style={styles.menuItem} onPress={() => setAreasVisible(true)}>
             <MaterialIcons name="location-on" size={24} color="#666" />
-            <Text style={styles.menuText}>Service Areas</Text>
+            <Text style={styles.menuText}>Service Area</Text>
             <MaterialIcons name="chevron-right" size={24} color="#666" />
           </TouchableOpacity>
           <TouchableOpacity style={styles.menuItem} onPress={() => setHoursVisible(true)}>
@@ -282,47 +395,22 @@ const DeliveryProfileScreen = ({ navigation }) => {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Service Areas</Text>
-            <FlatList
-              data={areas}
-              keyExtractor={item => item.id}
-              renderItem={({ item }) => (
-                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
-                  <Text style={{ flex: 1, fontSize: 15 }}>{item.name}</Text>
-                  <TouchableOpacity onPress={() => { openEditArea(item); }}>
-                    <MaterialIcons name="edit" size={20} color="#2196F3" />
-                  </TouchableOpacity>
-                  <TouchableOpacity onPress={() => removeArea(item.id)}>
-                    <MaterialIcons name="delete" size={20} color="#f44336" />
-                  </TouchableOpacity>
-                </View>
-              )}
-              ListFooterComponent={
-                <TouchableOpacity style={[styles.modalButton, { marginTop: 10 }]} onPress={openAddArea}>
-                  <MaterialIcons name="add" size={20} color="#fff" />
-                  <Text style={{ color: 'white', fontWeight: 'bold', marginLeft: 6 }}>Add Area</Text>
-                </TouchableOpacity>
-              }
-            />
-            {/* Add/Edit Area */}
-            {(editAreaId !== null || areaName) && (
-              <View style={{ marginTop: 10 }}>
-                <TextInput
-                  style={styles.input}
-                  value={areaName}
-                  onChangeText={setAreaName}
-                  placeholder="Area Name"
-                />
-                <View style={styles.modalActions}>
-                  <TouchableOpacity onPress={saveArea} style={styles.modalButton}>
-                    <Text style={styles.modalButtonText}>Save</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity onPress={() => { setEditAreaId(null); setAreaName(''); }} style={[styles.modalButton, { backgroundColor: '#ccc' }]}> 
-                    <Text style={[styles.modalButtonText, { color: '#333' }]}>Cancel</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            )}
+            <Text style={styles.modalTitle}>Service Area</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+              <MaterialIcons name="location-on" size={20} color="#2196F3" />
+              <Text style={{ fontSize: 16, color: '#333', marginLeft: 8 }}>
+                {profile.address ? profile.address : 'No service area set'}
+              </Text>
+              <TouchableOpacity
+                style={[styles.modalButton, { marginLeft: 12, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', backgroundColor: locationLoading ? '#ccc' : '#2196F3' }]}
+                onPress={setLocationHandler}
+                disabled={locationLoading}
+              >
+                <MaterialIcons name="my-location" size={18} color="#fff" />
+                <Text style={{ color: 'white', fontWeight: 'bold', marginLeft: 6 }}>{locationLoading ? 'Updating...' : 'Set My Location'}</Text>
+              </TouchableOpacity>
+            </View>
+            {/* Edit option can be added here in future if backend supports */}
             <TouchableOpacity onPress={() => setAreasVisible(false)} style={[styles.modalButton, { alignSelf: 'center', marginTop: 10 }]}> 
               <Text style={styles.modalButtonText}>Close</Text>
             </TouchableOpacity>

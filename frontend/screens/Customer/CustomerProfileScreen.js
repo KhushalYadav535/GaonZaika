@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { navigateAfterLogout } from '../../utils/navigationUtils';
 
 const CustomerProfileScreen = ({ navigation }) => {
   const [editProfileVisible, setEditProfileVisible] = useState(false);
@@ -72,14 +73,15 @@ const CustomerProfileScreen = ({ navigation }) => {
                 'customerToken'
               ]);
               console.log('Customer data cleared on logout');
+              
+              // Use simple navigation for logout
+              const success = navigateAfterLogout(navigation);
+              if (!success) {
+                console.error('Failed to navigate to RoleSelection');
+              }
             } catch (error) {
               console.error('Error clearing customer data:', error);
             }
-            
-            navigation.reset({
-              index: 0,
-              routes: [{ name: 'RoleSelection' }],
-            });
           },
         },
       ]

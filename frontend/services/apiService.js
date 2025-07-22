@@ -279,6 +279,8 @@ export const apiService = {
   // Delivery APIs
   getDeliveryOrders: (deliveryId) => api.get(`/delivery/${deliveryId}/orders`),
   verifyOTP: (orderId, otp) => api.post(`/orders/${orderId}/verify-otp`, { otp }),
+  updateDeliveryLocation: (deliveryId, latitude, longitude) =>
+    retryRequest(() => api.patch(`/delivery/${deliveryId}/location`, { latitude, longitude })),
   
   // Delivery OTP APIs
   generateDeliveryOTP: (orderId) => api.post(`/delivery/${orderId}/generate-otp`),

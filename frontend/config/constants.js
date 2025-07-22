@@ -4,20 +4,22 @@
 export const CONFIG = {
   // Google Maps API Key - Set this in your environment or replace with your actual key
   GOOGLE_MAPS_API_KEY: null, // Replace with your actual Google Maps API key
-  
-  // API Base URL
-  API_BASE_URL: 'https://gaonzaika.onrender.com', // Production backend URL
-  
+
+  // API Base URL (auto-switch based on environment)
+  API_BASE_URL: __DEV__
+    ? 'http://192.168.1.4:3000' // Local backend for development (no /api)
+    : 'https://gaonzaika.onrender.com/api', // Production backend (with /api)
+
   // App Configuration
   APP_NAME: 'Gaon Zaika',
   APP_VERSION: '1.0.0',
-  
+
   // Location Configuration
   DEFAULT_LOCATION: {
     latitude: 28.6139, // Delhi coordinates as default
     longitude: 77.2090,
   },
-  
+
   // Distance Configuration
   MAX_DELIVERY_DISTANCE: 10, // km
   NEARBY_RESTAURANT_RADIUS: 5, // km

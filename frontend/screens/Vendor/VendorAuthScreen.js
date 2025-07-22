@@ -13,6 +13,7 @@ import {
 import { MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import apiService from '../../services/apiService';
+import { safeNavigate, debugNavigation, navigateAfterLogin } from '../../utils/navigationUtils';
 
 const { width } = Dimensions.get('window');
 
@@ -60,7 +61,12 @@ const VendorAuthScreen = ({ navigation }) => {
           }));
           
           Alert.alert('Success', 'Login successful!');
-          navigation.replace('VendorTabs');
+          
+          // Use simple navigation for production builds
+          const success = navigateAfterLogin(navigation, 'VendorTabs');
+          if (!success) {
+            console.error('Failed to navigate to VendorTabs');
+          }
         } else {
           Alert.alert('Error', response.data.message || 'Login failed');
         }

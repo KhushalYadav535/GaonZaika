@@ -1,48 +1,16 @@
-import React, { useState, useEffect } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TextInput,
-  TouchableOpacity,
-  SafeAreaView,
-  Alert,
-  Animated,
-  Dimensions,
-  KeyboardAvoidingView,
-  Platform,
-} from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, SafeAreaView, Alert } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { LinearGradient } from 'expo-linear-gradient';
 import apiService from '../../services/apiService';
 import LoadingSpinner from '../../components/LoadingSpinner';
-import ErrorMessage from '../../components/ErrorMessage';
-
-const { width } = Dimensions.get('window');
+import { navigateAfterLogin } from '../../utils/navigationUtils';
 
 const VendorLoginScreen = ({ navigation }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [fadeAnim] = useState(new Animated.Value(0));
-  const [slideAnim] = useState(new Animated.Value(50));
-
-  useEffect(() => {
-    Animated.parallel([
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 1000,
-        useNativeDriver: true,
-      }),
-      Animated.timing(slideAnim, {
-        toValue: 0,
-        duration: 800,
-        useNativeDriver: true,
-      }),
-    ]).start();
-  }, []);
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -64,7 +32,10 @@ const VendorLoginScreen = ({ navigation }) => {
         await AsyncStorage.setItem('vendorData', JSON.stringify(vendor));
         
         console.log('Vendor login successful:', vendor);
-        navigation.replace('VendorTabs');
+        const success = navigateAfterLogin(navigation, 'VendorTabs');
+        if (!success) {
+          console.error('Failed to navigate to VendorTabs');
+        }
       } else {
         setError('Invalid credentials. Please try again.');
       }
@@ -87,112 +58,86 @@ const VendorLoginScreen = ({ navigation }) => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <LinearGradient
-        colors={['#FF6B35', '#F7931E', '#FF9800']}
-        style={styles.gradient}
-      >
-        <KeyboardAvoidingView 
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={styles.keyboardView}
+      <View style={styles.header}>
+        <View style={styles.logoContainer}>
+          <MaterialIcons name="restaurant" size={80} color="white" />
+        </View>
+        <Text style={styles.title}>Gaon Zaika</Text>
+        <Text style={styles.subtitle}>Vendor Portal</Text>
+        <Text style={styles.description}>Manage your restaurant with ease</Text>
+      </View>
+
+      <View style={styles.form}>
+        {error ? (
+          <ErrorMessage
+            message={error}
+            onRetry={handleRetry}
+            onDismiss={() => setError('')}
+            type="error"
+          />
+        ) : null}
+
+        <View style={styles.inputContainer}>
+          <MaterialIcons name="email" size={24} color="#FF6B35" style={styles.inputIcon} />
+          <TextInput
+            style={styles.input}
+            placeholder="Email Address"
+            placeholderTextColor="#999"
+            value={email}
+            onChangeText={(text) => {
+              setEmail(text);
+              if (error) setError('');
+            }}
+            keyboardType="email-address"
+            autoCapitalize="none"
+            autoCorrect={false}
+            editable={!loading}
+          />
+        </View>
+
+        <View style={styles.inputContainer}>
+          <MaterialIcons name="lock" size={24} color="#FF6B35" style={styles.inputIcon} />
+          <TextInput
+            style={styles.input}
+            placeholder="Password"
+            placeholderTextColor="#999"
+            value={password}
+            onChangeText={(text) => {
+              setPassword(text);
+              if (error) setError('');
+            }}
+            secureTextEntry
+            autoCorrect={false}
+            editable={!loading}
+          />
+        </View>
+
+        <TouchableOpacity
+          style={[styles.loginButton, loading && styles.disabledButton]}
+          onPress={handleLogin}
+          disabled={loading}
+          activeOpacity={0.8}
         >
-          <Animated.View 
-            style={[
-              styles.header,
-              {
-                opacity: fadeAnim,
-                transform: [{ translateY: slideAnim }]
-              }
-            ]}
+          <LinearGradient
+            colors={loading ? ['#ccc', '#ccc'] : ['#FF6B35', '#F7931E']}
+            style={styles.buttonGradient}
           >
-            <View style={styles.logoContainer}>
-              <MaterialIcons name="restaurant" size={80} color="white" />
-            </View>
-            <Text style={styles.title}>Gaon Zaika</Text>
-            <Text style={styles.subtitle}>Vendor Portal</Text>
-            <Text style={styles.description}>Manage your restaurant with ease</Text>
-          </Animated.View>
-
-          <Animated.View 
-            style={[
-              styles.form,
-              {
-                opacity: fadeAnim,
-                transform: [{ translateY: slideAnim }]
-              }
-            ]}
-          >
-            {error ? (
-              <ErrorMessage
-                message={error}
-                onRetry={handleRetry}
-                onDismiss={() => setError('')}
-                type="error"
-              />
-            ) : null}
-
-            <View style={styles.inputContainer}>
-              <MaterialIcons name="email" size={24} color="#FF6B35" style={styles.inputIcon} />
-              <TextInput
-                style={styles.input}
-                placeholder="Email Address"
-                placeholderTextColor="#999"
-                value={email}
-                onChangeText={(text) => {
-                  setEmail(text);
-                  if (error) setError('');
-                }}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                autoCorrect={false}
-                editable={!loading}
-              />
-            </View>
-
-            <View style={styles.inputContainer}>
-              <MaterialIcons name="lock" size={24} color="#FF6B35" style={styles.inputIcon} />
-              <TextInput
-                style={styles.input}
-                placeholder="Password"
-                placeholderTextColor="#999"
-                value={password}
-                onChangeText={(text) => {
-                  setPassword(text);
-                  if (error) setError('');
-                }}
-                secureTextEntry
-                autoCorrect={false}
-                editable={!loading}
-              />
-            </View>
-
-            <TouchableOpacity
-              style={[styles.loginButton, loading && styles.disabledButton]}
-              onPress={handleLogin}
-              disabled={loading}
-              activeOpacity={0.8}
-            >
-              <LinearGradient
-                colors={loading ? ['#ccc', '#ccc'] : ['#FF6B35', '#F7931E']}
-                style={styles.buttonGradient}
-              >
-                <Text style={styles.loginText}>
-                  {loading ? 'Signing In...' : 'Sign In'}
-                </Text>
-              </LinearGradient>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.forgotPassword} onPress={() => navigation.navigate('ForgotPassword')}>
-              <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
-            </TouchableOpacity>
-          </Animated.View>
-
-          <View style={styles.footer}>
-            <Text style={styles.footerText}>
-              Demo: vendor1@test.com / test123
+            <Text style={styles.loginText}>
+              {loading ? 'Signing In...' : 'Sign In'}
             </Text>
-          </View>
-        </KeyboardAvoidingView>
-      </LinearGradient>
+          </LinearGradient>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.forgotPassword} onPress={() => navigation.navigate('ForgotPassword')}>
+          <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.footer}>
+        <Text style={styles.footerText}>
+          Demo: vendor1@test.com / test123
+        </Text>
+      </View>
     </SafeAreaView>
   );
 };

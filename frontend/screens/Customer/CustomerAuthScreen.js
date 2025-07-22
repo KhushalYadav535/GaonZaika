@@ -13,6 +13,7 @@ import {
 import { MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import apiService from '../../services/apiService';
+import { safeNavigate, debugNavigation, navigateAfterLogin } from '../../utils/navigationUtils';
 
 const { width } = Dimensions.get('window');
 
@@ -59,7 +60,12 @@ const CustomerAuthScreen = ({ navigation }) => {
           
           console.log('Customer data stored:', customerData);
           Alert.alert('Success', 'Login successful!');
-          navigation.replace('CustomerTabs');
+          
+          // Use simple navigation for production builds
+          const success = navigateAfterLogin(navigation, 'CustomerTabs');
+          if (!success) {
+            console.error('Failed to navigate to CustomerTabs');
+          }
         } else {
           Alert.alert('Error', response.data?.message || 'Login failed');
         }

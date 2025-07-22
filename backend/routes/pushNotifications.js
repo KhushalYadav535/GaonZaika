@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const pushNotificationService = require('../services/pushNotificationService');
 const { verifyToken } = require('../middleware/auth');
+const emailService = require('../utils/emailService');
 
 // Save push token for a user
 router.post('/save-token', verifyToken, async (req, res) => {
@@ -257,6 +258,27 @@ router.delete('/remove-token', verifyToken, async (req, res) => {
   } catch (error) {
     console.error('Error removing push token:', error);
     res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+// Contact Admin endpoint
+router.post('/contact-admin', async (req, res) => {
+  try {
+    const { name, email, subject, message, role } = req.body;
+    if (!name || !email || !subject || !message) {
+      return res.status(400).json({ success: false, message: 'All fields are required.' });
+    }
+    const mailSubject = `[Contact Admin] ${role ? `[${role}] ` : ''}${subject}`;
+    const mailBody = `Name: ${name}\nEmail: ${email}\nRole: ${role || 'N/A'}\n\nMessage:\n${message}`;
+    await emailService.sendEmail({
+      to: 'gaonzaika@gmail.com',
+      subject: mailSubject,
+      text: mailBody
+    });
+    res.json({ success: true, message: 'Message sent to admin successfully.' });
+  } catch (error) {
+    console.error('Error sending contact admin email:', error);
+    res.status(500).json({ success: false, message: 'Failed to send message to admin.' });
   }
 });
 

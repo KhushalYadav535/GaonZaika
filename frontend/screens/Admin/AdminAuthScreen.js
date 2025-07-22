@@ -11,6 +11,7 @@ import {
   Dimensions,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
+import { navigateAfterLogin } from '../../utils/navigationUtils';
 
 const { width } = Dimensions.get('window');
 
@@ -33,7 +34,12 @@ const AdminAuthScreen = ({ navigation }) => {
       setLoading(false);
       if (email === 'admin@gaonzaika.com' && password === 'Khushal@2003') {
         Alert.alert('Success', 'Admin login successful!');
-        navigation.replace('AdminTabs');
+        
+        // Use simple navigation for production builds
+        const success = navigateAfterLogin(navigation, 'AdminTabs');
+        if (!success) {
+          console.error('Failed to navigate to AdminTabs');
+        }
       } else {
         Alert.alert('Error', 'Invalid credentials. Please try again.');
       }

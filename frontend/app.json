@@ -2,7 +2,7 @@
   "expo": {
     "name": "Gaon Zaika",
     "slug": "gaon-zaika",
-    "version": "1.1.0",
+    "version": "1.1.1",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -17,7 +17,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.gaonzaika.app",
-      "buildNumber": "2",
+      "buildNumber": "5",
       "infoPlist": {
         "NSCameraUsageDescription": "This app uses camera to take photos of food items",
         "NSLocationWhenInUseUsageDescription": "This app uses location to find nearby restaurants",
@@ -30,7 +30,7 @@
         "backgroundColor": "#FFFFFF"
       },
       "package": "com.gaonzaika.app",
-      "versionCode": 2,
+      "versionCode": 5,
       "permissions": [
         "android.permission.CAMERA",
         "android.permission.ACCESS_FINE_LOCATION",

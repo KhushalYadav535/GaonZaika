@@ -13,6 +13,8 @@ import {
 import { MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import apiService from '../../services/apiService';
+import { formatDeliveryAddress, getLocationSummary, getDeliveryInstructions } from '../../utils/addressUtils';
+import { useFocusEffect } from '@react-navigation/native';
 
 const DeliveryOrdersScreen = ({ navigation }) => {
   const [orders, setOrders] = useState([]);
@@ -29,6 +31,15 @@ const DeliveryOrdersScreen = ({ navigation }) => {
       loadOrders();
     }
   }, [deliveryId]);
+
+  // Refresh orders when screen is focused
+  useFocusEffect(
+    React.useCallback(() => {
+      if (deliveryId) {
+        loadOrders();
+      }
+    }, [deliveryId])
+  );
 
   const loadDeliveryPersonData = async () => {
     try {
@@ -69,6 +80,20 @@ const DeliveryOrdersScreen = ({ navigation }) => {
   };
 
   const handleAcceptOrder = async (orderId) => {
+    // Find the order to check its current status
+    const order = orders.find(o => o._id === orderId);
+    
+    if (!order) {
+      Alert.alert('Error', 'Order not found');
+      return;
+    }
+    
+    // Check if order is already assigned
+    if (order.assignedTo) {
+      Alert.alert('Order Already Assigned', 'This order has already been assigned to another delivery person.');
+      return;
+    }
+    
     Alert.alert(
       'Accept Order',
       'Do you want to accept this order for delivery?',
@@ -78,18 +103,51 @@ const DeliveryOrdersScreen = ({ navigation }) => {
           text: 'Accept',
           onPress: async () => {
             try {
-              const response = await apiService.updateOrderStatus(orderId, 'Out for Delivery');
+              const response = await apiService.acceptOrder(orderId);
               console.log('Order acceptance response:', response.data);
               
               if (response.data && response.data.success) {
                 Alert.alert('Success', 'Order accepted for delivery!');
-                loadOrders(); // Refresh orders
+                // Refresh orders to show updated status
+                loadOrders();
               } else {
-                Alert.alert('Error', 'Failed to accept order');
+                Alert.alert('Error', response.data?.message || 'Failed to accept order');
               }
             } catch (error) {
               console.error('Error accepting order:', error);
-              Alert.alert('Error', 'Failed to accept order');
+              const errorMessage = error.response?.data?.message || 'Failed to accept order. Please try again.';
+              Alert.alert('Error', errorMessage);
+            }
+          }
+        }
+      ]
+    );
+  };
+
+  const handleCompleteOrder = async (orderId) => {
+    Alert.alert(
+      'Complete Order',
+      'Are you sure you want to mark this order as delivered?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Complete',
+          onPress: async () => {
+            try {
+              const response = await apiService.completeOrder(orderId);
+              console.log('Order completion response:', response.data);
+              
+              if (response.data && response.data.success) {
+                Alert.alert('Success', 'Order marked as delivered!');
+                // Refresh orders to show updated status
+                loadOrders();
+              } else {
+                Alert.alert('Error', response.data?.message || 'Failed to complete order');
+              }
+            } catch (error) {
+              console.error('Error completing order:', error);
+              const errorMessage = error.response?.data?.message || 'Failed to complete order. Please try again.';
+              Alert.alert('Error', errorMessage);
             }
           }
         }
@@ -98,6 +156,26 @@ const DeliveryOrdersScreen = ({ navigation }) => {
   };
 
   const handleOTP = (orderId) => {
+    // Find the order to check its current status
+    const order = orders.find(o => o._id === orderId);
+    
+    if (!order) {
+      Alert.alert('Error', 'Order not found');
+      return;
+    }
+    
+    // Check if order is already delivered
+    if (order.status === 'Delivered') {
+      Alert.alert('Order Already Delivered', 'This order has already been delivered and OTP verified.');
+      return;
+    }
+    
+    // Check if order is not yet accepted for delivery
+    if (order.status !== 'Out for Delivery') {
+      Alert.alert('Order Not Accepted', 'Please accept the order for delivery before verifying OTP.');
+      return;
+    }
+    
     navigation.navigate('DeliveryOTP', { orderId });
   };
 
@@ -155,6 +233,16 @@ const DeliveryOrdersScreen = ({ navigation }) => {
           </View>
         </View>
 
+        {/* Assignment Status */}
+        {item.assignedTo && (
+          <View style={styles.assignmentInfo}>
+            <MaterialIcons name="person" size={16} color="#2196F3" />
+            <Text style={styles.assignmentText}>
+              {item.assignedTo === deliveryId ? 'Assigned to you' : 'Assigned to another delivery person'}
+            </Text>
+          </View>
+        )}
+
         <View style={styles.restaurantInfo}>
           <MaterialIcons name="restaurant" size={16} color="#666" />
           <Text style={styles.restaurantName}>
@@ -165,7 +253,41 @@ const DeliveryOrdersScreen = ({ navigation }) => {
         <View style={styles.customerInfo}>
           <Text style={styles.customerName}>Customer: {item.customerInfo?.name || 'N/A'}</Text>
           <Text style={styles.customerPhone}>Phone: {item.customerInfo?.phone || 'N/A'}</Text>
-          <Text style={styles.customerAddress}>Address: {item.customerInfo?.address || 'N/A'}</Text>
+          
+          {/* Enhanced Address Display */}
+          <View style={styles.addressSection}>
+            <Text style={styles.addressTitle}>Delivery Address:</Text>
+            <Text style={styles.customerAddress}>{item.customerInfo?.address || 'N/A'}</Text>
+            
+            {item.customerInfo?.deliveryDetails && (
+              <View style={styles.detailedAddress}>
+                {item.customerInfo.deliveryDetails.houseNumber && (
+                  <Text style={styles.addressDetail}>🏠 {item.customerInfo.deliveryDetails.houseNumber}</Text>
+                )}
+                {item.customerInfo.deliveryDetails.apartment && (
+                  <Text style={styles.addressDetail}>🏢 {item.customerInfo.deliveryDetails.apartment}</Text>
+                )}
+                {item.customerInfo.deliveryDetails.floor && (
+                  <Text style={styles.addressDetail}>🏢 Floor: {item.customerInfo.deliveryDetails.floor}</Text>
+                )}
+                {item.customerInfo.deliveryDetails.landmark && (
+                  <Text style={styles.addressDetail}>📍 Near: {item.customerInfo.deliveryDetails.landmark}</Text>
+                )}
+                {item.customerInfo.deliveryDetails.area && (
+                  <Text style={styles.addressDetail}>🏘️ Area: {item.customerInfo.deliveryDetails.area}</Text>
+                )}
+                {item.customerInfo.deliveryDetails.city && item.customerInfo.deliveryDetails.pincode && (
+                  <Text style={styles.addressDetail}>🏙️ {item.customerInfo.deliveryDetails.city} - {item.customerInfo.deliveryDetails.pincode}</Text>
+                )}
+                {item.customerInfo.deliveryDetails.additionalInstructions && (
+                  <View style={styles.instructionsContainer}>
+                    <Text style={styles.instructionsTitle}>📝 Special Instructions:</Text>
+                    <Text style={styles.instructionsText}>{item.customerInfo.deliveryDetails.additionalInstructions}</Text>
+                  </View>
+                )}
+              </View>
+            )}
+          </View>
         </View>
 
         <View style={styles.itemsContainer}>
@@ -186,13 +308,33 @@ const DeliveryOrdersScreen = ({ navigation }) => {
         </View>
 
         <View style={styles.actions}>
-          {item.status === 'Out for Delivery' && (
+          <TouchableOpacity 
+            style={[styles.actionBtn, styles.detailsBtn]} 
+            onPress={() => navigation.navigate('OrderDetail', { orderId: item._id })}
+          >
+            <MaterialIcons name="visibility" size={14} color="white" />
+            <Text style={styles.actionText}>View Details</Text>
+          </TouchableOpacity>
+          
+          {/* Accept Order Button - Only show for unassigned orders */}
+          {!item.assignedTo && item.status === 'Order Placed' && (
             <TouchableOpacity 
               style={[styles.actionBtn, styles.acceptBtn]} 
               onPress={() => handleAcceptOrder(item._id)}
             >
-              <MaterialIcons name="local-shipping" size={16} color="white" />
+              <MaterialIcons name="local-shipping" size={14} color="white" />
               <Text style={styles.actionText}>Accept Delivery</Text>
+            </TouchableOpacity>
+          )}
+          
+          {/* Complete Order Button - Only show for orders assigned to current delivery person */}
+          {item.assignedTo === deliveryId && item.status === 'Out for Delivery' && (
+            <TouchableOpacity 
+              style={[styles.actionBtn, styles.completeBtn]} 
+              onPress={() => handleCompleteOrder(item._id)}
+            >
+              <MaterialIcons name="check-circle" size={14} color="white" />
+              <Text style={styles.actionText}>Complete Delivery</Text>
             </TouchableOpacity>
           )}
           
@@ -201,7 +343,7 @@ const DeliveryOrdersScreen = ({ navigation }) => {
               style={[styles.actionBtn, styles.otpBtn]} 
               onPress={() => handleOTP(item._id)}
             >
-              <MaterialIcons name="verified" size={16} color="white" />
+              <MaterialIcons name="verified" size={14} color="white" />
               <Text style={styles.actionText}>Verify OTP</Text>
             </TouchableOpacity>
           )}
@@ -324,6 +466,19 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginLeft: 4
   },
+  assignmentInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+    paddingBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0'
+  },
+  assignmentText: {
+    color: '#333',
+    fontSize: 12,
+    marginLeft: 8
+  },
   restaurantInfo: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -356,6 +511,43 @@ const styles = StyleSheet.create({
     color: '#333',
     fontSize: 12
   },
+  addressSection: {
+    marginTop: 8
+  },
+  addressTitle: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 4
+  },
+  detailedAddress: {
+    marginTop: 8,
+    paddingLeft: 8,
+    borderLeftWidth: 2,
+    borderLeftColor: '#2196F3'
+  },
+  addressDetail: {
+    fontSize: 12,
+    color: '#555',
+    marginBottom: 2
+  },
+  instructionsContainer: {
+    marginTop: 8,
+    padding: 8,
+    backgroundColor: '#FFF3E0',
+    borderRadius: 6
+  },
+  instructionsTitle: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: '#E65100',
+    marginBottom: 4
+  },
+  instructionsText: {
+    fontSize: 12,
+    color: '#424242',
+    fontStyle: 'italic'
+  },
   itemsContainer: {
     marginBottom: 12
   },
@@ -382,17 +574,26 @@ const styles = StyleSheet.create({
   },
   actions: { 
     flexDirection: 'row', 
+    flexWrap: 'wrap',
     gap: 8
   },
   actionBtn: { 
     flexDirection: 'row',
     alignItems: 'center',
     borderRadius: 8, 
-    paddingHorizontal: 12,
-    paddingVertical: 8
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    minWidth: 100,
+    justifyContent: 'center'
+  },
+  detailsBtn: {
+    backgroundColor: '#9C27B0'
   },
   acceptBtn: {
     backgroundColor: '#4CAF50'
+  },
+  completeBtn: {
+    backgroundColor: '#FF9800'
   },
   otpBtn: {
     backgroundColor: '#2196F3'
@@ -400,6 +601,7 @@ const styles = StyleSheet.create({
   actionText: { 
     color: 'white', 
     fontWeight: 'bold',
+    fontSize: 12,
     marginLeft: 4
   },
   emptyContainer: {

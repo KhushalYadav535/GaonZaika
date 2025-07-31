@@ -168,10 +168,7 @@ const VendorProfileScreen = ({ navigation }) => {
   // Help & Support Modal
   const [helpVisible, setHelpVisible] = useState(false);
 
-  // Contact Admin Modal
-  const [contactVisible, setContactVisible] = useState(false);
-  const [contactSubject, setContactSubject] = useState('');
-  const [contactMessage, setContactMessage] = useState('');
+
 
   const handleSaveLocation = async (locationData) => {
     try {
@@ -384,11 +381,6 @@ const VendorProfileScreen = ({ navigation }) => {
             <Text style={styles.menuText}>Help & Support</Text>
             <MaterialIcons name="chevron-right" size={24} color="#666" />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.menuItem} onPress={() => setContactVisible(true)}>
-            <MaterialIcons name="contact-support" size={24} color="#666" />
-            <Text style={styles.menuText}>Contact Admin</Text>
-            <MaterialIcons name="chevron-right" size={24} color="#666" />
-          </TouchableOpacity>
         </View>
 
         <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
@@ -579,40 +571,6 @@ const VendorProfileScreen = ({ navigation }) => {
         </View>
       </Modal>
 
-      {/* Contact Admin Modal */}
-      <Modal
-        visible={contactVisible}
-        animationType="slide"
-        transparent={true}
-        onRequestClose={() => setContactVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Contact Admin</Text>
-            <TextInput
-              style={styles.input}
-              value={contactSubject}
-              onChangeText={setContactSubject}
-              placeholder="Subject"
-            />
-            <TextInput
-              style={[styles.input, { height: 80 }]}
-              value={contactMessage}
-              onChangeText={setContactMessage}
-              placeholder="Message"
-              multiline
-            />
-            <View style={styles.modalActions}>
-              <TouchableOpacity onPress={() => { setContactVisible(false); setContactSubject(''); setContactMessage(''); }} style={styles.modalButton}>
-                <Text style={styles.modalButtonText}>Send</Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => { setContactVisible(false); setContactSubject(''); setContactMessage(''); }} style={[styles.modalButton, { backgroundColor: '#ccc' }]}> 
-                <Text style={[styles.modalButtonText, { color: '#333' }]}>Cancel</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
     </SafeAreaView>
   );
 };

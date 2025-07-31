@@ -77,6 +77,13 @@ router.post('/reset-password', authController.resetPassword);
 router.post('/send-verification-otp', authController.sendVerificationOTP);
 router.post('/verify-email-otp', authController.verifyEmailOTP);
 
+// Registration OTP APIs
+router.post('/send-registration-otp', authController.sendRegistrationOTP);
+router.post('/verify-registration-otp', [
+  body('email').isEmail().withMessage('Valid email is required'),
+  body('otp').isLength({ min: 6, max: 6 }).withMessage('OTP must be 6 digits')
+], authController.verifyRegistrationOTP);
+
 // Token validation (protected route)
 router.get('/validate-token', verifyToken, authController.validateToken);
 

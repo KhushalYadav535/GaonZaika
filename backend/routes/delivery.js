@@ -4,6 +4,7 @@ const DeliveryPerson = require('../models/DeliveryPerson');
 const Order = require('../models/Order');
 const { body, validationResult } = require('express-validator');
 const { sendOTP } = require('../utils/emailService');
+const { verifyToken, requireDelivery } = require('../middleware/auth');
 
 // Delivery person login is now handled by authController
 // This route is removed to avoid conflicts
@@ -348,6 +349,25 @@ router.post('/:orderId/resend-otp', async (req, res) => {
   } catch (error) {
     console.error('Error resending OTP:', error);
     res.status(500).json({ success: false, message: 'Failed to resend OTP' });
+  }
+});
+
+// Mark delivery boy online
+router.post('/online', verifyToken, requireDelivery, async (req, res) => {
+  try {
+    await DeliveryPerson.findByIdAndUpdate(req.user.id, { isOnline: true });
+    res.json({ success: true, message: 'You are now online.' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Failed to go online.' });
+  }
+});
+// Mark delivery boy offline
+router.post('/offline', verifyToken, requireDelivery, async (req, res) => {
+  try {
+    await DeliveryPerson.findByIdAndUpdate(req.user.id, { isOnline: false });
+    res.json({ success: true, message: 'You are now offline.' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Failed to go offline.' });
   }
 });
 

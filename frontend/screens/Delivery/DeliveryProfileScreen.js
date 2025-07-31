@@ -53,10 +53,7 @@ const DeliveryProfileScreen = ({ navigation }) => {
   ];
   // Help
   const [helpVisible, setHelpVisible] = useState(false);
-  // Contact Admin
-  const [contactVisible, setContactVisible] = useState(false);
-  const [contactSubject, setContactSubject] = useState('');
-  const [contactMessage, setContactMessage] = useState('');
+
   // Report Issue
   const [issueVisible, setIssueVisible] = useState(false);
   const [issueSubject, setIssueSubject] = useState('');
@@ -286,11 +283,7 @@ const DeliveryProfileScreen = ({ navigation }) => {
             <Text style={styles.menuText}>Help & Support</Text>
             <MaterialIcons name="chevron-right" size={24} color="#666" />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.menuItem} onPress={() => setContactVisible(true)}>
-            <MaterialIcons name="contact-support" size={24} color="#666" />
-            <Text style={styles.menuText}>Contact Admin</Text>
-            <MaterialIcons name="chevron-right" size={24} color="#666" />
-          </TouchableOpacity>
+
           <TouchableOpacity style={styles.menuItem} onPress={() => setIssueVisible(true)}>
             <MaterialIcons name="report-problem" size={24} color="#666" />
             <Text style={styles.menuText}>Report Issue</Text>
@@ -475,40 +468,7 @@ const DeliveryProfileScreen = ({ navigation }) => {
         </View>
       </Modal>
 
-      {/* Contact Admin Modal */}
-      <Modal
-        visible={contactVisible}
-        animationType="slide"
-        transparent={true}
-        onRequestClose={() => setContactVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Contact Admin</Text>
-            <TextInput
-              style={styles.input}
-              value={contactSubject}
-              onChangeText={setContactSubject}
-              placeholder="Subject"
-            />
-            <TextInput
-              style={[styles.input, { height: 80 }]}
-              value={contactMessage}
-              onChangeText={setContactMessage}
-              placeholder="Message"
-              multiline
-            />
-            <View style={styles.modalActions}>
-              <TouchableOpacity onPress={() => { setContactVisible(false); setContactSubject(''); setContactMessage(''); }} style={styles.modalButton}>
-                <Text style={styles.modalButtonText}>Send</Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => { setContactVisible(false); setContactSubject(''); setContactMessage(''); }} style={[styles.modalButton, { backgroundColor: '#ccc' }]}> 
-                <Text style={[styles.modalButtonText, { color: '#333' }]}>Cancel</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
+
 
       {/* Report Issue Modal */}
       <Modal

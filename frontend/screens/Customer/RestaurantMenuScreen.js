@@ -162,7 +162,7 @@ const RestaurantMenuScreen = ({ route, navigation }) => {
       Alert.alert('Empty Cart', 'Please add some items to your cart first.');
       return;
     }
-    navigation.navigate('Cart', { restaurant, cart });
+    navigation.navigate('DeliveryInfo', { restaurant, cart });
   };
 
   const renderMenuItem = ({ item }) => {

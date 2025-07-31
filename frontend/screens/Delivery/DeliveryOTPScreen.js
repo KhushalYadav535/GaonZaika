@@ -276,7 +276,7 @@ const styles = StyleSheet.create({
   },
   scrollContainer: {
     flexGrow: 1,
-    padding: 20,
+    padding: 16,
   },
   header: {
     alignItems: 'center',
@@ -334,10 +334,12 @@ const styles = StyleSheet.create({
     borderColor: '#4CAF50',
     borderRadius: 10,
     padding: 15,
-    fontSize: 24,
+    fontSize: 20,
     textAlign: 'center',
-    letterSpacing: 8,
+    letterSpacing: 4,
     marginBottom: 15,
+    width: '100%',
+    maxWidth: 200,
   },
   timerContainer: {
     alignItems: 'center',

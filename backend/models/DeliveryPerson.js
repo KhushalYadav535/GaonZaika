@@ -56,6 +56,10 @@ const deliveryPersonSchema = new mongoose.Schema({
     type: Boolean,
     default: true
   },
+  isOnline: {
+    type: Boolean,
+    default: false
+  },
   currentLocation: {
     type: {
       type: String,

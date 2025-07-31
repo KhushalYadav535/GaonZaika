@@ -33,13 +33,6 @@ const RoleSelectionScreen = ({ navigation }) => {
       description: 'Deliver orders to customers',
       color: '#2196F3',
     },
-    {
-      id: 'admin',
-      title: 'Admin',
-      icon: 'admin-panel-settings',
-      description: 'Manage the platform',
-      color: '#9C27B0',
-    },
   ];
 
   const handleRoleSelect = async (roleId) => {
@@ -51,9 +44,7 @@ const RoleSelectionScreen = ({ navigation }) => {
         'vendorData', 
         'vendorToken',
         'deliveryData',
-        'deliveryToken',
-        'adminData',
-        'adminToken'
+        'deliveryToken'
       ]);
       console.log('Cleared previous user data for role switch');
     } catch (error) {

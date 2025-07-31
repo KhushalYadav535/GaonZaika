@@ -65,27 +65,22 @@ const DeliveryAuthScreen = ({ navigation }) => {
         }
       } else {
         // Register logic
-        const response = await apiService.deliveryRegister({
+        const userData = {
           name,
           email,
           phone,
           password,
           vehicleNumber
-        });
+        };
+        
+        const response = await apiService.deliveryRegister(userData);
         
         if (response.data.success) {
-          // Store delivery person data and token
-          const { token, deliveryPerson } = response.data.data;
-          
-          await AsyncStorage.setItem('deliveryToken', token);
-          await AsyncStorage.setItem('deliveryData', JSON.stringify(deliveryPerson));
-          
-          console.log('Delivery registration successful:', deliveryPerson);
-          Alert.alert('Success', 'Registration successful! Please verify your email.');
-          navigation.navigate('EmailVerification', { 
+          // Navigate to OTP verification screen
+          navigation.navigate('RegistrationOTP', { 
             email, 
             role: 'delivery',
-            redirectScreen: 'DeliveryTabs'
+            registrationData: userData
           });
         } else {
           Alert.alert('Error', response.data.message || 'Registration failed');

@@ -82,24 +82,11 @@ const CustomerAuthScreen = ({ navigation }) => {
         console.log('Customer register response:', response.data);
         
         if (response.data && response.data.success) {
-          // Store customer data and token
-          const customerData = {
-            id: response.data.data.customer.id,
-            name: response.data.data.customer.name,
-            email: response.data.data.customer.email,
-            phone: response.data.data.customer.phone,
-            token: response.data.data.token
-          };
-          
-          await AsyncStorage.setItem('customerData', JSON.stringify(customerData));
-          await AsyncStorage.setItem('customerToken', response.data.data.token);
-          
-          console.log('Customer data stored:', customerData);
-          Alert.alert('Success', 'Registration successful! Please verify your email.');
-          navigation.navigate('EmailVerification', { 
+          // Navigate to OTP verification screen
+          navigation.navigate('RegistrationOTP', { 
             email, 
             role: 'customer',
-            redirectScreen: 'CustomerTabs'
+            registrationData: userData
           });
         } else {
           Alert.alert('Error', response.data?.message || 'Registration failed');

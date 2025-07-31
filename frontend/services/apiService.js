@@ -9,7 +9,7 @@ let BASE_URL = CONFIG.API_BASE_URL;
 // If running in development (Expo Go, localhost), use local IP
 if (__DEV__) {
   // Try to use the local IP if available (for mobile dev)
-  BASE_URL = 'http://192.168.1.4:3000/api';
+  BASE_URL = 'http://192.168.1.3:3000/api';
 }
 
 // Create axios instance for API calls
@@ -75,9 +75,8 @@ api.interceptors.request.use(
       const vendorToken = await AsyncStorage.getItem('vendorToken');
       const customerToken = await AsyncStorage.getItem('customerToken');
       const deliveryToken = await AsyncStorage.getItem('deliveryToken');
-      const adminToken = await AsyncStorage.getItem('adminToken');
       
-      console.log('Available tokens:', { vendorToken: !!vendorToken, customerToken: !!customerToken, deliveryToken: !!deliveryToken, adminToken: !!adminToken });
+      console.log('Available tokens:', { vendorToken: !!vendorToken, customerToken: !!customerToken, deliveryToken: !!deliveryToken });
       
       if (vendorToken && vendorToken.trim()) {
         config.headers.Authorization = `Bearer ${vendorToken.trim()}`;
@@ -88,9 +87,6 @@ api.interceptors.request.use(
       } else if (deliveryToken && deliveryToken.trim()) {
         config.headers.Authorization = `Bearer ${deliveryToken.trim()}`;
         console.log('Using delivery token for:', config.url);
-      } else if (adminToken && adminToken.trim()) {
-        config.headers.Authorization = `Bearer ${adminToken.trim()}`;
-        console.log('Using admin token for:', config.url);
       } else {
         console.log('No valid auth token found for:', config.url);
       }
@@ -121,7 +117,7 @@ api.interceptors.response.use(
       
       // Clear all tokens on 401 error
       try {
-        await AsyncStorage.multiRemove(['vendorToken', 'customerToken', 'deliveryToken', 'adminToken']);
+        await AsyncStorage.multiRemove(['vendorToken', 'customerToken', 'deliveryToken']);
         console.log('Cleared all auth tokens due to 401 error');
       } catch (clearError) {
         console.error('Error clearing tokens:', clearError);
@@ -167,7 +163,6 @@ export const apiService = {
   vendorLogin: (credentials) => retryRequest(() => api.post('/auth/vendor/login', credentials)),
   deliveryRegister: (userData) => retryRequest(() => api.post('/auth/delivery/register', userData)),
   deliveryLogin: (credentials) => retryRequest(() => api.post('/auth/delivery/login', credentials)),
-  adminLogin: (credentials) => retryRequest(() => api.post('/auth/admin/login', credentials)),
   
   // Token validation
   validateToken: () => api.get('/auth/validate-token'),
@@ -278,29 +273,31 @@ export const apiService = {
   
   // Delivery APIs
   getDeliveryOrders: (deliveryId) => api.get(`/delivery/${deliveryId}/orders`),
+  getOrderDetails: (orderId) => api.get(`/orders/${orderId}`),
   verifyOTP: (orderId, otp) => api.post(`/orders/${orderId}/verify-otp`, { otp }),
   updateDeliveryLocation: (deliveryId, latitude, longitude) =>
     retryRequest(() => api.patch(`/delivery/${deliveryId}/location`, { latitude, longitude })),
+  
+  // New Delivery APIs for online/offline and order management
+  goOnline: () => retryRequest(() => api.post('/delivery/online')),
+  goOffline: () => retryRequest(() => api.post('/delivery/offline')),
+  acceptOrder: (orderId) => retryRequest(() => api.post(`/orders/${orderId}/accept`)),
+  completeOrder: (orderId) => retryRequest(() => api.post(`/orders/${orderId}/complete`)),
   
   // Delivery OTP APIs
   generateDeliveryOTP: (orderId) => api.post(`/delivery/${orderId}/generate-otp`),
   verifyDeliveryOTP: (orderId, otp) => api.post(`/delivery/${orderId}/verify-otp`, { otp }),
   resendDeliveryOTP: (orderId) => api.post(`/delivery/${orderId}/resend-otp`),
   
-  // Admin APIs
-  getAllRestaurants: () => api.get('/admin/restaurants'),
-  getAllOrders: () => api.get('/admin/orders'),
-  getAllUsers: () => api.get('/admin/users'),
-  addRestaurant: (restaurantData) => api.post('/admin/restaurants', restaurantData),
-  updateRestaurant: (restaurantId, restaurantData) => api.put(`/admin/restaurants/${restaurantId}`, restaurantData),
-  deleteRestaurant: (restaurantId) => api.delete(`/admin/restaurants/${restaurantId}`),
-  addMenuItem: (restaurantId, menuItemData) => api.post(`/admin/restaurants/${restaurantId}/menu`, menuItemData),
-  updateMenuItem: (restaurantId, menuItemId, menuItemData) => api.put(`/admin/restaurants/${restaurantId}/menu/${menuItemId}`, menuItemData),
-  deleteMenuItem: (restaurantId, menuItemId) => api.delete(`/admin/restaurants/${restaurantId}/menu/${menuItemId}`),
+
   
   // Email Verification APIs
   sendVerificationOTP: (email, role) => api.post('/auth/send-verification-otp', { email, role }),
   verifyEmailOTP: (email, role, otp) => api.post('/auth/verify-email-otp', { email, role, otp }),
+  
+  // Registration OTP APIs
+  sendRegistrationOTP: (registrationData) => retryRequest(() => api.post('/auth/send-registration-otp', registrationData)),
+  verifyRegistrationOTP: (otpData) => retryRequest(() => api.post('/auth/verify-registration-otp', otpData)),
 };
 
 // Export the real apiService

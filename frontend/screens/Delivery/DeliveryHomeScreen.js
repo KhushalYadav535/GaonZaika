@@ -7,10 +7,12 @@ import {
   SafeAreaView,
   ScrollView,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import apiService from '../../services/apiService';
+import pushNotificationService from '../../services/pushNotificationService';
 
 const DeliveryHomeScreen = ({ navigation }) => {
   const [status, setStatus] = useState('Online');
@@ -22,9 +24,17 @@ const DeliveryHomeScreen = ({ navigation }) => {
     earningsToday: 0,
   });
   const [loading, setLoading] = useState(true);
+  const [statusLoading, setStatusLoading] = useState(false);
+  const [hasNewOrders, setHasNewOrders] = useState(false);
 
   useEffect(() => {
     loadDeliveryPersonData();
+    initializePushNotifications();
+    
+    // Cleanup function
+    return () => {
+      pushNotificationService.cleanup();
+    };
   }, []);
 
   useEffect(() => {
@@ -90,8 +100,64 @@ const DeliveryHomeScreen = ({ navigation }) => {
     }
   };
 
-  const toggleStatus = () => {
-    setStatus((prev) => (prev === 'Online' ? 'Offline' : 'Online'));
+  const toggleStatus = async () => {
+    setStatusLoading(true);
+    try {
+      let response;
+      if (status === 'Online') {
+        response = await apiService.goOffline();
+      } else {
+        response = await apiService.goOnline();
+      }
+      
+      if (response.data?.success) {
+        setStatus(status === 'Online' ? 'Offline' : 'Online');
+        console.log('Status updated successfully:', response.data.message);
+      } else {
+        console.error('Failed to update status:', response.data?.message || response.data?.error);
+      }
+    } catch (error) {
+      console.error('Error updating status:', error);
+    } finally {
+      setStatusLoading(false);
+    }
+  };
+
+  const initializePushNotifications = async () => {
+    try {
+      await pushNotificationService.initialize();
+      
+      // Set up custom notification handler for new orders
+      pushNotificationService.setupNotificationListeners();
+      
+      // Override the notification tap handler for delivery-specific logic
+      pushNotificationService.handleNotificationTap = (response) => {
+        const data = response.notification.request.content.data;
+        
+        if (data.type === 'new_order') {
+          // Set new order indicator
+          setHasNewOrders(true);
+          
+          // Show alert for new order and navigate to orders screen
+          Alert.alert(
+            'New Order Available!',
+            'A new delivery order is available. Would you like to view it?',
+            [
+              { text: 'Later', style: 'cancel' },
+              { 
+                text: 'View Orders', 
+                onPress: () => {
+                  setHasNewOrders(false);
+                  navigation.navigate('Orders');
+                }
+              }
+            ]
+          );
+        }
+      };
+    } catch (error) {
+      console.error('Error initializing push notifications:', error);
+    }
   };
 
   if (loading) {
@@ -170,16 +236,29 @@ const DeliveryHomeScreen = ({ navigation }) => {
         <View style={styles.actionsRow}>
           <TouchableOpacity
             style={styles.actionButton}
-            onPress={() => navigation.navigate('Orders')}
+            onPress={() => {
+              setHasNewOrders(false);
+              navigation.navigate('Orders');
+            }}
           >
             <MaterialIcons name="list-alt" size={24} color="#fff" />
             <Text style={styles.actionText}>View Orders</Text>
+            {hasNewOrders && (
+              <View style={styles.notificationBadge}>
+                <Text style={styles.notificationText}>!</Text>
+              </View>
+            )}
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.actionButton, { backgroundColor: status === 'Online' ? '#f44336' : '#4CAF50' }]}
             onPress={toggleStatus}
+            disabled={statusLoading}
           >
-            <MaterialIcons name={status === 'Online' ? 'toggle-off' : 'toggle-on'} size={24} color="#fff" />
+            {statusLoading ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <MaterialIcons name={status === 'Online' ? 'toggle-off' : 'toggle-on'} size={24} color="#fff" />
+            )}
             <Text style={styles.actionText}>{status === 'Online' ? 'Go Offline' : 'Go Online'}</Text>
           </TouchableOpacity>
         </View>
@@ -335,6 +414,24 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: 'bold',
     marginLeft: 8,
+  },
+  notificationBadge: {
+    position: 'absolute',
+    top: -8,
+    right: -8,
+    backgroundColor: '#FF5722',
+    borderRadius: 10,
+    width: 20,
+    height: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: 'white',
+  },
+  notificationText: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: 'bold',
   },
 });
 

@@ -14,11 +14,11 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import apiService from '../../services/apiService';
 
 const CartScreen = ({ route, navigation }) => {
-  const { restaurant, cart } = route.params;
+  const { restaurant, cart, deliveryInfo } = route.params;
   const [customerInfo, setCustomerInfo] = useState({
-    name: '',
-    phone: '',
-    address: '',
+    name: deliveryInfo?.name || '',
+    phone: deliveryInfo?.phone || '',
+    address: deliveryInfo?.address || '',
   });
   const [loading, setLoading] = useState(false);
 
@@ -77,6 +77,22 @@ const CartScreen = ({ route, navigation }) => {
 
       const subtotal = cart.reduce((total, item) => total + (item.price * item.quantity), 0);
 
+      // Prepare enhanced customer info with delivery details
+      const enhancedCustomerInfo = {
+        ...customerInfo,
+        deliveryDetails: {
+          houseNumber: deliveryInfo?.houseNumber || '',
+          apartment: deliveryInfo?.apartment || '',
+          floor: deliveryInfo?.floor || '',
+          landmark: deliveryInfo?.landmark || '',
+          area: deliveryInfo?.area || '',
+          city: deliveryInfo?.city || '',
+          pincode: deliveryInfo?.pincode || '',
+          state: deliveryInfo?.state || '',
+          additionalInstructions: deliveryInfo?.additionalInstructions || ''
+        }
+      };
+
       const orderData = {
         restaurantId: restaurant._id || restaurant.id, // Use _id if available
         customerId: customerId,
@@ -86,7 +102,7 @@ const CartScreen = ({ route, navigation }) => {
           quantity: item.quantity,
           price: item.price
         })),
-        customerInfo,
+        customerInfo: enhancedCustomerInfo,
         subtotal,
         totalAmount: subtotal + 20, // Including delivery fee
         deliveryFee: 20,

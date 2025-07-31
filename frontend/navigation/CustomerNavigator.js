@@ -9,6 +9,7 @@ import CustomerAuthScreen from '../screens/Customer/CustomerAuthScreen';
 import CustomerHomeScreen from '../screens/Customer/CustomerHomeScreen';
 import RestaurantMenuScreen from '../screens/Customer/RestaurantMenuScreen';
 import CartScreen from '../screens/Customer/CartScreen';
+import DeliveryInfoScreen from '../screens/Customer/DeliveryInfoScreen';
 import OrderConfirmationScreen from '../screens/Customer/OrderConfirmationScreen';
 import OrderStatusScreen from '../screens/Customer/OrderStatusScreen';
 import CustomerProfileScreen from '../screens/Customer/CustomerProfileScreen';
@@ -18,6 +19,7 @@ import HelpScreen from '../screens/HelpScreen';
 import ForgotPasswordScreen from '../screens/Customer/ForgotPasswordScreen';
 import ResetPasswordScreen from '../screens/Customer/ResetPasswordScreen';
 import EmailVerificationScreen from '../screens/EmailVerificationScreen';
+import RegistrationOTPScreen from '../screens/RegistrationOTPScreen';
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -90,6 +92,7 @@ const CustomerNavigator = ({ route }) => {
       <Stack.Screen name="CustomerAuth" component={CustomerAuthScreen} />
       <Stack.Screen name="CustomerTabs" component={CustomerTabs} />
       <Stack.Screen name="RestaurantMenu" component={RestaurantMenuScreen} />
+      <Stack.Screen name="DeliveryInfo" component={DeliveryInfoScreen} />
       <Stack.Screen name="Cart" component={CartScreen} />
       <Stack.Screen name="OrderConfirmation" component={OrderConfirmationScreen} />
       <Stack.Screen name="Addresses" component={AddressesScreen} />
@@ -98,6 +101,7 @@ const CustomerNavigator = ({ route }) => {
       <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
       <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
       <Stack.Screen name="EmailVerification" component={EmailVerificationScreen} />
+      <Stack.Screen name="RegistrationOTP" component={RegistrationOTPScreen} />
     </Stack.Navigator>
   );
 };

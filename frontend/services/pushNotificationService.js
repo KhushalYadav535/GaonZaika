@@ -89,8 +89,9 @@ class PushNotificationService {
       // You'll need to implement navigation logic here
       console.log('Navigate to order status:', data.orderId);
     } else if (data.type === 'new_order') {
-      // Navigate to orders screen
-      console.log('Navigate to orders screen');
+      // Navigate to orders screen for delivery boys
+      console.log('Navigate to orders screen for new order:', data.orderId);
+      // This will be handled by the navigation context
     } else if (data.type === 'delivery_update') {
       // Navigate to delivery screen
       console.log('Navigate to delivery screen');

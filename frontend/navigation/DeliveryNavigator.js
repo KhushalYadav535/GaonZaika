@@ -10,6 +10,7 @@ import DeliveryHomeScreen from '../screens/Delivery/DeliveryHomeScreen';
 import DeliveryOrdersScreen from '../screens/Delivery/DeliveryOrdersScreen';
 import DeliveryOTPScreen from '../screens/Delivery/DeliveryOTPScreen';
 import DeliveryProfileScreen from '../screens/Delivery/DeliveryProfileScreen';
+import OrderDetailScreen from '../screens/Delivery/OrderDetailScreen';
 import EarningsHistoryScreen from '../screens/Delivery/EarningsHistoryScreen';
 import DeliveryHistoryScreen from '../screens/Delivery/DeliveryHistoryScreen';
 import PerformanceReportScreen from '../screens/Delivery/PerformanceReportScreen';
@@ -17,6 +18,7 @@ import HelpScreen from '../screens/HelpScreen';
 import ForgotPasswordScreen from '../screens/Delivery/ForgotPasswordScreen';
 import ResetPasswordScreen from '../screens/Delivery/ResetPasswordScreen';
 import EmailVerificationScreen from '../screens/EmailVerificationScreen';
+import RegistrationOTPScreen from '../screens/RegistrationOTPScreen';
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -89,6 +91,7 @@ const DeliveryNavigator = ({ route }) => {
       <Stack.Screen name="DeliveryAuth" component={DeliveryAuthScreen} />
       <Stack.Screen name="DeliveryTabs" component={DeliveryTabs} />
       <Stack.Screen name="DeliveryOTP" component={DeliveryOTPScreen} />
+      <Stack.Screen name="OrderDetail" component={OrderDetailScreen} />
       <Stack.Screen name="EarningsHistory" component={EarningsHistoryScreen} />
       <Stack.Screen name="DeliveryHistory" component={DeliveryHistoryScreen} />
       <Stack.Screen name="PerformanceReport" component={PerformanceReportScreen} />
@@ -96,6 +99,7 @@ const DeliveryNavigator = ({ route }) => {
       <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
       <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
       <Stack.Screen name="EmailVerification" component={EmailVerificationScreen} />
+      <Stack.Screen name="RegistrationOTP" component={RegistrationOTPScreen} />
     </Stack.Navigator>
   );
 };

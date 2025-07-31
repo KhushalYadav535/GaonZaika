@@ -8,7 +8,7 @@ const sendOTP = require('../utils/emailService');
 const Customer = require('../models/Customer');
 const mongoose = require('mongoose');
 const pushNotificationService = require('../services/pushNotificationService');
-const { verifyToken, getUser } = require('../middleware/auth');
+const { verifyToken, getUser, requireDelivery } = require('../middleware/auth');
 
 // Validation middleware
 const validateOrder = [
@@ -98,12 +98,13 @@ router.post('/', validateOrder, async (req, res) => {
       });
     }
 
-    // Create order
+    // Create order with enhanced delivery information
     const order = new Order({
       restaurantId,
       customerInfo: {
         ...customerInfo,
-        email: customerEmail
+        email: customerEmail,
+        deliveryDetails: customerInfo.deliveryDetails || {}
       },
       items: items.map(item => ({
         menuItemId: item.menuItemId || new mongoose.Types.ObjectId(), // Generate if not provided
@@ -151,6 +152,18 @@ router.post('/', validateOrder, async (req, res) => {
     } catch (notificationError) {
       console.error('Error sending push notification to vendor:', notificationError);
       // Don't fail the request if notification fails
+    }
+
+    // After order is created, broadcast to all online delivery boys
+    const onlineDeliveryBoys = await DeliveryPerson.find({ isOnline: true });
+    const pushTokens = onlineDeliveryBoys.map(d => d.pushToken).filter(Boolean);
+    if (pushTokens.length > 0) {
+      await pushNotificationService.sendPushNotificationToMultiple(
+        pushTokens,
+        'New Delivery Order',
+        `Order #${order.orderId} is available. Accept quickly to get it!`,
+        { orderId: order._id, type: 'new_order' }
+      );
     }
 
     res.status(201).json({
@@ -607,6 +620,50 @@ router.post('/:id/rate', [
       success: false,
       message: 'Failed to rate order'
     });
+  }
+});
+
+// Delivery boy accepts an order
+router.post('/:orderId/accept', verifyToken, requireDelivery, async (req, res) => {
+  const { orderId } = req.params;
+  const deliveryBoyId = req.user.id;
+  try {
+    // Check if delivery boy has an active order
+    const activeOrder = await Order.findOne({
+      assignedTo: deliveryBoyId,
+      status: { $in: ['Accepted', 'Preparing', 'Ready for Delivery', 'Out for Delivery'] }
+    });
+    if (activeOrder) {
+      return res.status(400).json({ success: false, message: 'You already have an active order.' });
+    }
+    // Atomic assignment: only assign if not already assigned
+    const order = await Order.findOneAndUpdate(
+      { _id: orderId, assignedTo: null, status: { $in: ['Order Placed'] } },
+      { assignedTo: deliveryBoyId, status: 'Accepted' },
+      { new: true }
+    );
+    if (!order) {
+      return res.status(400).json({ success: false, message: 'Order already assigned or not available.' });
+    }
+    res.json({ success: true, message: 'Order assigned to you.', order });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Failed to accept order.' });
+  }
+});
+// Delivery boy completes an order
+router.post('/:orderId/complete', verifyToken, requireDelivery, async (req, res) => {
+  const { orderId } = req.params;
+  const deliveryBoyId = req.user.id;
+  try {
+    const order = await Order.findOne({ _id: orderId, assignedTo: deliveryBoyId });
+    if (!order) {
+      return res.status(404).json({ success: false, message: 'Order not found or not assigned to you.' });
+    }
+    order.status = 'Delivered';
+    await order.save();
+    res.json({ success: true, message: 'Order marked as delivered.' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Failed to complete order.' });
   }
 });
 

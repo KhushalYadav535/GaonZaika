@@ -13,7 +13,7 @@ import RoleSelectionScreen from './screens/RoleSelectionScreen';
 import CustomerNavigator from './navigation/CustomerNavigator';
 import VendorNavigator from './navigation/VendorNavigator';
 import DeliveryNavigator from './navigation/DeliveryNavigator';
-import AdminNavigator from './navigation/AdminNavigator';
+
 
 // Import components
 import NetworkStatus from './components/NetworkStatus';
@@ -34,7 +34,7 @@ export default function App() {
       const customerToken = await AsyncStorage.getItem('customerToken');
       const vendorToken = await AsyncStorage.getItem('vendorToken');
       const deliveryToken = await AsyncStorage.getItem('deliveryToken');
-      const adminToken = await AsyncStorage.getItem('adminToken');
+
 
       // Determine which role is authenticated
       if (customerToken && customerToken.trim()) {
@@ -43,8 +43,6 @@ export default function App() {
         setInitialRoute('Vendor');
       } else if (deliveryToken && deliveryToken.trim()) {
         setInitialRoute('Delivery');
-      } else if (adminToken && adminToken.trim()) {
-        setInitialRoute('Admin');
       } else {
         // No valid token found, show role selection
         setInitialRoute('RoleSelection');
@@ -80,7 +78,7 @@ export default function App() {
             <Stack.Screen name="Customer" component={CustomerNavigator} />
             <Stack.Screen name="Vendor" component={VendorNavigator} />
             <Stack.Screen name="Delivery" component={DeliveryNavigator} />
-            <Stack.Screen name="Admin" component={AdminNavigator} />
+
           </Stack.Navigator>
         </NavigationContainer>
       </NetworkStatus>

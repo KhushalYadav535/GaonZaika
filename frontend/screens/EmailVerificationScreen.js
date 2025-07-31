@@ -69,7 +69,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: '#fff',
-    padding: 24,
+    padding: 20,
   },
   title: {
     fontSize: 24,
@@ -85,12 +85,14 @@ const styles = StyleSheet.create({
   },
   input: {
     width: '100%',
+    maxWidth: 300,
     borderWidth: 1,
     borderColor: '#ccc',
     borderRadius: 8,
     padding: 12,
     fontSize: 16,
     marginBottom: 18,
+    textAlign: 'center',
   },
   button: {
     backgroundColor: '#4CAF50',

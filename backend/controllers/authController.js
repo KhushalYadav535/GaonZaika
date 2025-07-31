@@ -166,6 +166,258 @@ exports.verifyEmailOTP = async (req, res) => {
   }
 };
 
+// Cleanup expired registration data
+const cleanupExpiredRegistrationData = () => {
+  if (!global.registrationData) return;
+  
+  const now = new Date();
+  Object.keys(global.registrationData).forEach(email => {
+    if (global.registrationData[email].expiresAt < now) {
+      delete global.registrationData[email];
+    }
+  });
+};
+
+// Send Registration OTP
+exports.sendRegistrationOTP = async (req, res) => {
+  try {
+    // Cleanup expired data first
+    cleanupExpiredRegistrationData();
+    
+    const { name, phone, email, password, role, restaurantName, restaurantAddress, vehicleNumber } = req.body;
+    
+    if (!name || !phone || !email || !password || !role) {
+      return res.status(400).json({ success: false, message: 'All required fields are missing.' });
+    }
+
+    if (role === 'admin') {
+      return res.status(400).json({ success: false, message: 'Admin registration not allowed via this endpoint.' });
+    }
+
+    const Model = getModelByRole(role);
+    if (!Model) {
+      return res.status(400).json({ success: false, message: 'Invalid role.' });
+    }
+
+    // Check if user already exists
+    const existingUser = await Model.findOne({
+      $or: [{ email }, { phone }]
+    });
+
+    if (existingUser) {
+      return res.status(400).json({
+        success: false,
+        message: `${role.charAt(0).toUpperCase() + role.slice(1)} with this email or phone already exists`
+      });
+    }
+
+    // Generate OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 min
+
+    // Store registration data in session or temporary storage
+    // For now, we'll store it in a temporary object (in production, use Redis or similar)
+    const registrationData = {
+      name,
+      phone,
+      email,
+      password,
+      role,
+      restaurantName,
+      restaurantAddress,
+      vehicleNumber,
+      otp,
+      expiresAt
+    };
+
+    // Store in memory (in production, use Redis)
+    global.registrationData = global.registrationData || {};
+    global.registrationData[email] = registrationData;
+
+    // Send OTP via email
+    try {
+      await sendVerificationOTP(email, otp);
+    } catch (e) {
+      console.error('Error sending registration OTP email:', e);
+      return res.status(500).json({ success: false, message: 'Failed to send OTP. Please try again.' });
+    }
+
+    return res.json({ 
+      success: true, 
+      message: 'Registration OTP sent to your email. Please verify to complete registration.' 
+    });
+
+  } catch (error) {
+    console.error('Send registration OTP error:', error);
+    res.status(500).json({ success: false, message: 'Failed to process request.' });
+  }
+};
+
+// Verify Registration OTP and Create Account
+exports.verifyRegistrationOTP = async (req, res) => {
+  try {
+    // Cleanup expired data first
+    cleanupExpiredRegistrationData();
+    
+    const { email, otp } = req.body;
+    
+    if (!email || !otp) {
+      return res.status(400).json({ success: false, message: 'Email and OTP are required.' });
+    }
+
+    // Get stored registration data
+    if (!global.registrationData || !global.registrationData[email]) {
+      return res.status(400).json({ success: false, message: 'Registration session expired. Please register again.' });
+    }
+
+    const registrationData = global.registrationData[email];
+
+    // Check if OTP is expired
+    if (new Date() > registrationData.expiresAt) {
+      delete global.registrationData[email];
+      return res.status(400).json({ success: false, message: 'OTP expired. Please register again.' });
+    }
+
+    // Verify OTP
+    if (registrationData.otp !== otp) {
+      return res.status(400).json({ success: false, message: 'Invalid OTP.' });
+    }
+
+    const Model = getModelByRole(registrationData.role);
+    if (!Model) {
+      return res.status(400).json({ success: false, message: 'Invalid role.' });
+    }
+
+    let user;
+
+    // Create user based on role
+    switch (registrationData.role) {
+      case 'customer':
+        user = new Customer({
+          name: registrationData.name,
+          phone: registrationData.phone,
+          email: registrationData.email,
+          password: registrationData.password,
+          isEmailVerified: true // Mark as verified since OTP was verified
+        });
+        break;
+
+      case 'vendor':
+        // Create vendor first with a dummy restaurantId
+        const dummyRestaurantId = new mongoose.Types.ObjectId();
+        user = new Vendor({
+          name: registrationData.name,
+          phone: registrationData.phone,
+          email: registrationData.email,
+          password: registrationData.password,
+          restaurantId: dummyRestaurantId,
+          pin: '1234',
+          isEmailVerified: true
+        });
+
+        await user.save();
+
+        // Create restaurant with vendor reference
+        const restaurant = new Restaurant({
+          name: registrationData.restaurantName,
+          cuisine: 'Mixed',
+          rating: 0,
+          deliveryTime: {
+            min: 30,
+            max: 45
+          },
+          minOrder: 100,
+          isOpen: true,
+          isActive: true,
+          vendorId: user._id,
+          contact: {
+            phone: registrationData.phone,
+            email: registrationData.email
+          },
+          address: {
+            fullAddress: registrationData.restaurantAddress || 'Address to be set',
+            street: '',
+            city: '',
+            state: '',
+            pincode: ''
+          },
+          location: {
+            type: 'Point',
+            coordinates: [0, 0]
+          }
+        });
+
+        await restaurant.save();
+
+        // Update vendor with the real restaurant reference
+        user.restaurantId = restaurant._id;
+        await user.save();
+        break;
+
+      case 'delivery':
+        user = new DeliveryPerson({
+          name: registrationData.name,
+          phone: registrationData.phone,
+          email: registrationData.email,
+          password: registrationData.password,
+          vehicleDetails: {
+            type: 'Bike',
+            number: registrationData.vehicleNumber
+          },
+          isEmailVerified: true
+        });
+        break;
+
+      default:
+        return res.status(400).json({ success: false, message: 'Invalid role.' });
+    }
+
+    if (registrationData.role !== 'vendor') {
+      await user.save();
+    }
+
+    // Generate token
+    const token = generateToken(user._id, registrationData.role);
+
+    // Clean up registration data
+    delete global.registrationData[email];
+
+    // Prepare response data based on role
+    let responseData = {
+      token,
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone
+      }
+    };
+
+    if (registrationData.role === 'vendor') {
+      responseData.user.restaurant = {
+        id: user.restaurantId,
+        name: registrationData.restaurantName
+      };
+    } else if (registrationData.role === 'delivery') {
+      responseData.user.vehicleDetails = user.vehicleDetails;
+    }
+
+    res.status(201).json({
+      success: true,
+      message: `${registrationData.role.charAt(0).toUpperCase() + registrationData.role.slice(1)} registered successfully`,
+      data: responseData
+    });
+
+  } catch (error) {
+    console.error('Verify registration OTP error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Registration failed',
+      error: error.message
+    });
+  }
+};
+
 // Customer Authentication
 exports.registerCustomer = async (req, res) => {
   try {
@@ -192,31 +444,33 @@ exports.registerCustomer = async (req, res) => {
       });
     }
 
-    // Create new customer
-    const customer = new Customer({
+    // Generate OTP for registration
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 min
+
+    // Store registration data temporarily
+    global.registrationData = global.registrationData || {};
+    global.registrationData[email] = {
       name,
       phone,
       email,
-      password
-    });
+      password,
+      role: 'customer',
+      otp,
+      expiresAt
+    };
 
-    await customer.save();
+    // Send OTP via email
+    try {
+      await sendVerificationOTP(email, otp);
+    } catch (e) {
+      console.error('Error sending registration OTP email:', e);
+      return res.status(500).json({ success: false, message: 'Failed to send OTP. Please try again.' });
+    }
 
-    // Generate token
-    const token = generateToken(customer._id, 'customer');
-
-    res.status(201).json({
+    res.json({
       success: true,
-      message: 'Customer registered successfully',
-      data: {
-        token,
-        customer: {
-          id: customer._id,
-          name: customer.name,
-          email: customer.email,
-          phone: customer.phone
-        }
-      }
+      message: 'Registration OTP sent to your email. Please verify to complete registration.'
     });
 
   } catch (error) {
@@ -318,75 +572,35 @@ exports.registerVendor = async (req, res) => {
       });
     }
 
-    // Create vendor first with a dummy restaurantId
-    const dummyRestaurantId = new mongoose.Types.ObjectId();
-    const vendor = new Vendor({
+    // Generate OTP for registration
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 min
+
+    // Store registration data temporarily
+    global.registrationData = global.registrationData || {};
+    global.registrationData[email] = {
       name,
       phone,
       email,
       password,
-      restaurantId: dummyRestaurantId, // Temporary ID
-      pin: '1234' // Default PIN for demo
-    });
+      role: 'vendor',
+      restaurantName,
+      restaurantAddress,
+      otp,
+      expiresAt
+    };
 
-    await vendor.save();
+    // Send OTP via email
+    try {
+      await sendVerificationOTP(email, otp);
+    } catch (e) {
+      console.error('Error sending registration OTP email:', e);
+      return res.status(500).json({ success: false, message: 'Failed to send OTP. Please try again.' });
+    }
 
-    // Create restaurant with vendor reference
-    const restaurant = new Restaurant({
-      name: restaurantName,
-      cuisine: 'Mixed',
-      rating: 0,
-      deliveryTime: {
-        min: 30,
-        max: 45
-      },
-      minOrder: 100,
-      isOpen: true,
-      isActive: true,
-      vendorId: vendor._id,
-      contact: {
-        phone: phone, // Use vendor's phone number
-        email: email  // Use vendor's email
-      },
-      address: {
-        fullAddress: restaurantAddress || 'Address to be set',
-        street: '',
-        city: '',
-        state: '',
-        pincode: ''
-      },
-      // Set default location (vendor can update later)
-      location: {
-        type: 'Point',
-        coordinates: [0, 0] // Default coordinates, vendor should update
-      }
-    });
-
-    await restaurant.save();
-
-    // Update vendor with the real restaurant reference
-    vendor.restaurantId = restaurant._id;
-    await vendor.save();
-
-    // Generate token
-    const token = generateToken(vendor._id, 'vendor');
-
-    res.status(201).json({
+    res.json({
       success: true,
-      message: 'Vendor registered successfully',
-      data: {
-        token,
-        vendor: {
-          id: vendor._id,
-          name: vendor.name,
-          email: vendor.email,
-          phone: vendor.phone,
-          restaurant: {
-            id: restaurant._id,
-            name: restaurant.name
-          }
-        }
-      }
+      message: 'Registration OTP sent to your email. Please verify to complete registration.'
     });
 
   } catch (error) {
@@ -488,37 +702,34 @@ exports.registerDelivery = async (req, res) => {
       });
     }
 
-    // Create delivery person
-    const deliveryPerson = new DeliveryPerson({
+    // Generate OTP for registration
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 min
+
+    // Store registration data temporarily
+    global.registrationData = global.registrationData || {};
+    global.registrationData[email] = {
       name,
       phone,
       email,
       password,
-      vehicleDetails: {
-        type: 'Bike',
-        number: vehicleNumber
-      },
-      pin: '5678' // Default PIN for demo
-    });
+      role: 'delivery',
+      vehicleNumber,
+      otp,
+      expiresAt
+    };
 
-    await deliveryPerson.save();
+    // Send OTP via email
+    try {
+      await sendVerificationOTP(email, otp);
+    } catch (e) {
+      console.error('Error sending registration OTP email:', e);
+      return res.status(500).json({ success: false, message: 'Failed to send OTP. Please try again.' });
+    }
 
-    // Generate token
-    const token = generateToken(deliveryPerson._id, 'delivery');
-
-    res.status(201).json({
+    res.json({
       success: true,
-      message: 'Delivery person registered successfully',
-      data: {
-        token,
-        deliveryPerson: {
-          id: deliveryPerson._id,
-          name: deliveryPerson.name,
-          email: deliveryPerson.email,
-          phone: deliveryPerson.phone,
-          vehicleDetails: deliveryPerson.vehicleDetails
-        }
-      }
+      message: 'Registration OTP sent to your email. Please verify to complete registration.'
     });
 
   } catch (error) {

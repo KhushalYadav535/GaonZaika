@@ -7,7 +7,7 @@ export const CONFIG = {
 
   // API Base URL (auto-switch based on environment)
   API_BASE_URL: __DEV__
-    ? 'http://192.168.1.4:3000' // Local backend for development (no /api)
+    ? 'http://192.168.1.3:3000' // Local backend for development (no /api)
     : 'https://gaonzaika.onrender.com/api', // Production backend (with /api)
 
   // App Configuration

@@ -17,6 +17,7 @@ import HelpScreen from '../screens/HelpScreen';
 import ForgotPasswordScreen from '../screens/Vendor/ForgotPasswordScreen';
 import ResetPasswordScreen from '../screens/Vendor/ResetPasswordScreen';
 import EmailVerificationScreen from '../screens/EmailVerificationScreen';
+import RegistrationOTPScreen from '../screens/RegistrationOTPScreen';
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -98,6 +99,7 @@ const VendorNavigator = ({ route }) => {
       <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
       <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
       <Stack.Screen name="EmailVerification" component={EmailVerificationScreen} />
+      <Stack.Screen name="RegistrationOTP" component={RegistrationOTPScreen} />
       <Stack.Screen name="SalesAnalytics" component={SalesAnalyticsScreen} />
       <Stack.Screen name="ReviewsRatings" component={ReviewsRatingsScreen} />
     </Stack.Navigator>

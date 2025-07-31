@@ -72,34 +72,23 @@ const VendorAuthScreen = ({ navigation }) => {
         }
       } else {
         // Register logic
-        const response = await apiService.vendorRegister({
+        const userData = {
           name,
           email,
           phone,
           password,
           restaurantName,
           restaurantAddress
-        });
+        };
+        
+        const response = await apiService.vendorRegister(userData);
         
         if (response.data.success) {
-          const vendorData = response.data.data;
-          
-          // Store vendor data in AsyncStorage
-          console.log('Register - Storing vendor token:', vendorData.token);
-          await AsyncStorage.setItem('vendorToken', vendorData.token);
-          await AsyncStorage.setItem('vendorData', JSON.stringify({
-            id: vendorData.vendor.id,
-            name: vendorData.vendor.name,
-            email: vendorData.vendor.email,
-            phone: vendorData.vendor.phone,
-            restaurant: vendorData.vendor.restaurant
-          }));
-          
-          Alert.alert('Success', 'Registration successful!');
-          navigation.navigate('EmailVerification', { 
+          // Navigate to OTP verification screen
+          navigation.navigate('RegistrationOTP', { 
             email, 
             role: 'vendor',
-            redirectScreen: 'VendorTabs'
+            registrationData: userData
           });
         } else {
           Alert.alert('Error', response.data.message || 'Registration failed');

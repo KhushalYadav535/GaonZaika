@@ -52,7 +52,24 @@ const orderSchema = new mongoose.Schema({
       type: String,
       required: true
     },
-    email: String
+    email: String,
+    // Enhanced delivery information for better navigation
+    deliveryDetails: {
+      houseNumber: String,
+      apartment: String,
+      floor: String,
+      landmark: String,
+      area: String,
+      city: String,
+      pincode: String,
+      state: String,
+      additionalInstructions: String,
+      // Location coordinates for future map integration
+      coordinates: {
+        lat: Number,
+        lng: Number
+      }
+    }
   },
   items: [orderItemSchema],
   subtotal: {
@@ -83,6 +100,11 @@ const orderSchema = new mongoose.Schema({
     default: 'Pending'
   },
   deliveryPersonId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'DeliveryPerson',
+    default: null
+  },
+  assignedTo: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'DeliveryPerson',
     default: null

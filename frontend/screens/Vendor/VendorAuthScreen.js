@@ -9,6 +9,7 @@ import {
   Alert,
   Animated,
   Dimensions,
+  ScrollView,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -139,132 +140,139 @@ const VendorAuthScreen = ({ navigation }) => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <MaterialIcons name="restaurant" size={60} color="#FF9800" />
-        <Text style={styles.appName}>Gaon Zaika</Text>
-        <Text style={styles.slogan}>Swad Gaon Ka</Text>
-        <Text style={styles.roleTitle}>Vendor Portal</Text>
-      </View>
+      <ScrollView 
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
+        <View style={styles.header}>
+          <MaterialIcons name="restaurant" size={60} color="#FF9800" />
+          <Text style={styles.appName}>Gaon Zaika</Text>
+          <Text style={styles.slogan}>Swad Gaon Ka</Text>
+          <Text style={styles.roleTitle}>Vendor Portal</Text>
+        </View>
 
-      <View style={styles.authContainer}>
-        <Text style={styles.authTitle}>
-          {isLogin ? 'Welcome Back!' : 'Join as Vendor'}
-        </Text>
-        <Text style={styles.authSubtitle}>
-          {isLogin 
-            ? 'Sign in to manage your restaurant' 
-            : 'Start your restaurant journey with us'
-          }
-        </Text>
+        <View style={styles.authContainer}>
+          <Text style={styles.authTitle}>
+            {isLogin ? 'Welcome Back!' : 'Join as Vendor'}
+          </Text>
+          <Text style={styles.authSubtitle}>
+            {isLogin 
+              ? 'Sign in to manage your restaurant' 
+              : 'Start your restaurant journey with us'
+            }
+          </Text>
 
-        <View style={styles.form}>
-          {!isLogin && (
+          <View style={styles.form}>
+            {!isLogin && (
+              <View style={styles.inputContainer}>
+                <MaterialIcons name="person" size={20} color="#666" style={styles.inputIcon} />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Vendor Name"
+                  value={name}
+                  onChangeText={setName}
+                  autoCapitalize="words"
+                />
+              </View>
+            )}
+
+            {!isLogin && (
+              <View style={styles.inputContainer}>
+                <MaterialIcons name="restaurant" size={20} color="#666" style={styles.inputIcon} />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Restaurant Name"
+                  value={restaurantName}
+                  onChangeText={setRestaurantName}
+                  autoCapitalize="words"
+                />
+              </View>
+            )}
+
+            {!isLogin && (
+              <View style={styles.inputContainer}>
+                <MaterialIcons name="restaurant" size={20} color="#666" style={styles.inputIcon} />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Restaurant Address"
+                  value={restaurantAddress}
+                  onChangeText={setRestaurantAddress}
+                  autoCapitalize="words"
+                />
+              </View>
+            )}
+
+            {!isLogin && (
+              <View style={styles.inputContainer}>
+                <MaterialIcons name="phone" size={20} color="#666" style={styles.inputIcon} />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Phone Number"
+                  value={phone}
+                  onChangeText={setPhone}
+                  keyboardType="phone-pad"
+                />
+              </View>
+            )}
+
             <View style={styles.inputContainer}>
-              <MaterialIcons name="person" size={20} color="#666" style={styles.inputIcon} />
+              <MaterialIcons name="email" size={20} color="#666" style={styles.inputIcon} />
               <TextInput
                 style={styles.input}
-                placeholder="Vendor Name"
-                value={name}
-                onChangeText={setName}
-                autoCapitalize="words"
+                placeholder="Email Address"
+                value={email}
+                onChangeText={setEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
               />
             </View>
-          )}
 
-          {!isLogin && (
             <View style={styles.inputContainer}>
-              <MaterialIcons name="restaurant" size={20} color="#666" style={styles.inputIcon} />
+              <MaterialIcons name="lock" size={20} color="#666" style={styles.inputIcon} />
               <TextInput
                 style={styles.input}
-                placeholder="Restaurant Name"
-                value={restaurantName}
-                onChangeText={setRestaurantName}
-                autoCapitalize="words"
+                placeholder="Password"
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry={!showPassword}
               />
+              <TouchableOpacity
+                style={styles.eyeIcon}
+                onPress={() => setShowPassword(!showPassword)}
+              >
+                <MaterialIcons 
+                  name={showPassword ? "visibility" : "visibility-off"} 
+                  size={20} 
+                  color="#666" 
+                />
+              </TouchableOpacity>
             </View>
-          )}
 
-          {!isLogin && (
-            <View style={styles.inputContainer}>
-              <MaterialIcons name="restaurant" size={20} color="#666" style={styles.inputIcon} />
-              <TextInput
-                style={styles.input}
-                placeholder="Restaurant Address"
-                value={restaurantAddress}
-                onChangeText={setRestaurantAddress}
-                autoCapitalize="words"
-              />
-            </View>
-          )}
-
-          {!isLogin && (
-            <View style={styles.inputContainer}>
-              <MaterialIcons name="phone" size={20} color="#666" style={styles.inputIcon} />
-              <TextInput
-                style={styles.input}
-                placeholder="Phone Number"
-                value={phone}
-                onChangeText={setPhone}
-                keyboardType="phone-pad"
-              />
-            </View>
-          )}
-
-          <View style={styles.inputContainer}>
-            <MaterialIcons name="email" size={20} color="#666" style={styles.inputIcon} />
-            <TextInput
-              style={styles.input}
-              placeholder="Email Address"
-              value={email}
-              onChangeText={setEmail}
-              keyboardType="email-address"
-              autoCapitalize="none"
-            />
-          </View>
-
-          <View style={styles.inputContainer}>
-            <MaterialIcons name="lock" size={20} color="#666" style={styles.inputIcon} />
-            <TextInput
-              style={styles.input}
-              placeholder="Password"
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry={!showPassword}
-            />
             <TouchableOpacity
-              style={styles.eyeIcon}
-              onPress={() => setShowPassword(!showPassword)}
+              style={[styles.authButton, loading && styles.disabledButton]}
+              onPress={handleAuth}
+              disabled={loading}
             >
-              <MaterialIcons 
-                name={showPassword ? "visibility" : "visibility-off"} 
-                size={20} 
-                color="#666" 
-              />
+              <Text style={styles.authButtonText}>
+                {loading ? 'Please wait...' : (isLogin ? 'Sign In' : 'Register Restaurant')}
+              </Text>
             </TouchableOpacity>
           </View>
 
-          <TouchableOpacity
-            style={[styles.authButton, loading && styles.disabledButton]}
-            onPress={handleAuth}
-            disabled={loading}
-          >
-            <Text style={styles.authButtonText}>
-              {loading ? 'Please wait...' : (isLogin ? 'Sign In' : 'Register Restaurant')}
+          <View style={styles.switchContainer}>
+            <Text style={styles.switchText}>
+              {isLogin ? "Don't have an account? " : "Already have an account? "}
             </Text>
-          </TouchableOpacity>
+            <TouchableOpacity onPress={toggleAuthMode}>
+              <Text style={styles.switchButton}>
+                {isLogin ? 'Register' : 'Sign In'}
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
-
-        <View style={styles.switchContainer}>
-          <Text style={styles.switchText}>
-            {isLogin ? "Don't have an account? " : "Already have an account? "}
-          </Text>
-          <TouchableOpacity onPress={toggleAuthMode}>
-            <Text style={styles.switchButton}>
-              {isLogin ? 'Register' : 'Sign In'}
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </View>
+      </ScrollView>
     </SafeAreaView>
   );
 };
@@ -273,6 +281,13 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f8f9fa',
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    paddingBottom: 20,
   },
   header: {
     alignItems: 'center',

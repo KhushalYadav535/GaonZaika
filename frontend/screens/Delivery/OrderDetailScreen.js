@@ -14,6 +14,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import apiService from '../../services/apiService';
 import { formatDeliveryAddress, getLocationSummary, getDeliveryInstructions } from '../../utils/addressUtils';
+import { useFocusEffect } from '@react-navigation/native';
 
 const OrderDetailScreen = ({ route, navigation }) => {
   const { orderId } = route.params;
@@ -24,6 +25,15 @@ const OrderDetailScreen = ({ route, navigation }) => {
   useEffect(() => {
     loadOrderDetails();
   }, [orderId]);
+
+  // Refresh order details when screen is focused (e.g., after OTP verification)
+  useFocusEffect(
+    React.useCallback(() => {
+      if (orderId) {
+        loadOrderDetails();
+      }
+    }, [orderId])
+  );
 
   const loadOrderDetails = async () => {
     try {
@@ -49,27 +59,46 @@ const OrderDetailScreen = ({ route, navigation }) => {
   };
 
   const handleUpdateStatus = async (newStatus) => {
-    setUpdating(true);
-    try {
-      const response = await apiService.updateOrderStatus(orderId, newStatus);
-      if (response.data && response.data.success) {
-        Alert.alert('Success', `Order status updated to ${newStatus}`);
-        loadOrderDetails(); // Refresh order details
-      } else {
+    if (newStatus === 'Delivered') {
+      // For delivery completion, require OTP verification
+      Alert.alert(
+        'Complete Delivery',
+        'To complete delivery, you need to verify the customer\'s OTP. This ensures secure delivery confirmation.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Verify OTP',
+            onPress: () => {
+              // Navigate to OTP verification screen
+              navigation.navigate('DeliveryOTP', { 
+                orderId: orderId,
+                orderDetails: order
+              });
+            }
+          }
+        ]
+      );
+    } else {
+      // For other status updates, proceed normally
+      setUpdating(true);
+      try {
+        const response = await apiService.updateOrderStatus(orderId, newStatus);
+        if (response.data && response.data.success) {
+          Alert.alert('Success', `Order status updated to ${newStatus}`);
+          loadOrderDetails(); // Refresh order details
+        } else {
+          Alert.alert('Error', 'Failed to update order status');
+        }
+      } catch (error) {
+        console.error('Error updating order status:', error);
         Alert.alert('Error', 'Failed to update order status');
+      } finally {
+        setUpdating(false);
       }
-    } catch (error) {
-      console.error('Error updating order status:', error);
-      Alert.alert('Error', 'Failed to update order status');
-    } finally {
-      setUpdating(false);
     }
   };
 
-  const handleNavigateToDelivery = () => {
-    // This will be used when maps are integrated
-    Alert.alert('Navigation', 'Navigation feature will be available soon!');
-  };
+
 
   if (loading) {
     return (
@@ -209,10 +238,7 @@ const OrderDetailScreen = ({ route, navigation }) => {
               </View>
             )}
             
-            <TouchableOpacity style={styles.navigateButton} onPress={handleNavigateToDelivery}>
-              <MaterialIcons name="directions" size={20} color="white" />
-              <Text style={styles.navigateButtonText}>Navigate to Delivery</Text>
-            </TouchableOpacity>
+
           </View>
         </View>
 
@@ -263,8 +289,8 @@ const OrderDetailScreen = ({ route, navigation }) => {
                 <ActivityIndicator size="small" color="white" />
               ) : (
                 <>
-                  <MaterialIcons name="check-circle" size={20} color="white" />
-                  <Text style={styles.actionButtonText}>Mark as Delivered</Text>
+                  <MaterialIcons name="verified" size={20} color="white" />
+                  <Text style={styles.actionButtonText}>Complete Delivery (OTP Required)</Text>
                 </>
               )}
             </TouchableOpacity>
@@ -476,20 +502,7 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
     marginLeft: 24
   },
-  navigateButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#4CAF50',
-    padding: 12,
-    borderRadius: 8,
-    marginTop: 8
-  },
-  navigateButtonText: {
-    color: 'white',
-    fontWeight: 'bold',
-    marginLeft: 8
-  },
+
   itemsContainer: {
     marginBottom: 16
   },

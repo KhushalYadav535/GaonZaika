@@ -9,7 +9,7 @@ let BASE_URL = CONFIG.API_BASE_URL;
 // If running in development (Expo Go, localhost), use local IP
 if (__DEV__) {
   // Try to use the local IP if available (for mobile dev)
-  BASE_URL = 'http://192.168.1.3:3000/api';
+  BASE_URL = 'http://192.168.1.6:3000/api';
 }
 
 // Create axios instance for API calls

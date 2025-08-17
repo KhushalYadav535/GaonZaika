@@ -41,6 +41,18 @@ const DeliveryOrdersScreen = ({ navigation }) => {
     }, [deliveryId])
   );
 
+  // Handle refresh parameter from navigation
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', () => {
+      const params = navigation.getState()?.routes?.find(route => route.name === 'DeliveryOrders')?.params;
+      if (params?.refresh && deliveryId) {
+        loadOrders();
+      }
+    });
+
+    return unsubscribe;
+  }, [navigation, deliveryId]);
+
   const loadDeliveryPersonData = async () => {
     try {
       const deliveryData = await AsyncStorage.getItem('deliveryData');
@@ -125,38 +137,7 @@ const DeliveryOrdersScreen = ({ navigation }) => {
   };
 
   const handleCompleteOrder = async (orderId) => {
-    Alert.alert(
-      'Complete Order',
-      'Are you sure you want to mark this order as delivered?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Complete',
-          onPress: async () => {
-            try {
-              const response = await apiService.completeOrder(orderId);
-              console.log('Order completion response:', response.data);
-              
-              if (response.data && response.data.success) {
-                Alert.alert('Success', 'Order marked as delivered!');
-                // Refresh orders to show updated status
-                loadOrders();
-              } else {
-                Alert.alert('Error', response.data?.message || 'Failed to complete order');
-              }
-            } catch (error) {
-              console.error('Error completing order:', error);
-              const errorMessage = error.response?.data?.message || 'Failed to complete order. Please try again.';
-              Alert.alert('Error', errorMessage);
-            }
-          }
-        }
-      ]
-    );
-  };
-
-  const handleOTP = (orderId) => {
-    // Find the order to check its current status
+    // Find the order to get its details
     const order = orders.find(o => o._id === orderId);
     
     if (!order) {
@@ -164,20 +145,26 @@ const DeliveryOrdersScreen = ({ navigation }) => {
       return;
     }
     
-    // Check if order is already delivered
-    if (order.status === 'Delivered') {
-      Alert.alert('Order Already Delivered', 'This order has already been delivered and OTP verified.');
-      return;
-    }
-    
-    // Check if order is not yet accepted for delivery
-    if (order.status !== 'Out for Delivery') {
-      Alert.alert('Order Not Accepted', 'Please accept the order for delivery before verifying OTP.');
-      return;
-    }
-    
-    navigation.navigate('DeliveryOTP', { orderId });
+    Alert.alert(
+      'Complete Delivery',
+      'To complete delivery, you need to verify the customer\'s OTP. This ensures secure delivery confirmation.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Verify OTP',
+          onPress: () => {
+            // Navigate to OTP verification screen
+            navigation.navigate('DeliveryOTP', { 
+              orderId: orderId,
+              orderDetails: order
+            });
+          }
+        }
+      ]
+    );
   };
+
+
 
   const getStatusColor = (status) => {
     switch (status) {
@@ -333,18 +320,8 @@ const DeliveryOrdersScreen = ({ navigation }) => {
               style={[styles.actionBtn, styles.completeBtn]} 
               onPress={() => handleCompleteOrder(item._id)}
             >
-              <MaterialIcons name="check-circle" size={14} color="white" />
-              <Text style={styles.actionText}>Complete Delivery</Text>
-            </TouchableOpacity>
-          )}
-          
-          {item.status === 'Out for Delivery' && (
-            <TouchableOpacity 
-              style={[styles.actionBtn, styles.otpBtn]} 
-              onPress={() => handleOTP(item._id)}
-            >
               <MaterialIcons name="verified" size={14} color="white" />
-              <Text style={styles.actionText}>Verify OTP</Text>
+              <Text style={styles.actionText}>Complete Delivery (OTP Required)</Text>
             </TouchableOpacity>
           )}
         </View>

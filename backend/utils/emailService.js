@@ -3,9 +3,11 @@ const sgMail = require('@sendgrid/mail');
 
 // Initialize SendGrid with API key
 if (!process.env.SENDGRID_API_KEY) {
-  console.warn('⚠️ SENDGRID_API_KEY environment variable not set. Email service may not work.');
+  console.warn('⚠️ SENDGRID_API_KEY environment variable not set. Email service will use nodemailer only.');
+} else {
+  sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+  console.log('✅ SendGrid API key configured');
 }
-sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
 // Create nodemailer transporter as fallback
 const createTransporter = () => {
@@ -22,6 +24,28 @@ const createTransporter = () => {
 
 // Send email using SendGrid (primary) with nodemailer fallback
 const sendEmail = async (emailData) => {
+  // Check if SendGrid API key is available
+  if (!process.env.SENDGRID_API_KEY) {
+    console.warn('⚠️ SendGrid API key not available, trying nodemailer only');
+    // Try nodemailer directly
+    try {
+      const transporter = createTransporter();
+      const mailOptions = {
+        from: emailData.from,
+        to: emailData.to,
+        subject: emailData.subject,
+        html: emailData.html
+      };
+      
+      const info = await transporter.sendMail(mailOptions);
+      console.log('Email sent successfully via nodemailer:', info.messageId);
+      return true;
+    } catch (nodemailerError) {
+      console.error('Nodemailer failed:', nodemailerError.message);
+      return false;
+    }
+  }
+
   try {
     // Try SendGrid first
     console.log('Attempting to send email via SendGrid...');
@@ -30,6 +54,12 @@ const sendEmail = async (emailData) => {
     return true;
   } catch (sendGridError) {
     console.error('SendGrid failed, trying nodemailer fallback:', sendGridError.message);
+    
+    // Only try nodemailer if SendGrid fails due to API issues, not rate limits
+    if (sendGridError.response && sendGridError.response.statusCode === 429) {
+      console.error('SendGrid rate limit exceeded, skipping nodemailer fallback');
+      return false;
+    }
     
     try {
       // Fallback to nodemailer
@@ -46,6 +76,12 @@ const sendEmail = async (emailData) => {
       return true;
     } catch (nodemailerError) {
       console.error('Both SendGrid and nodemailer failed:', nodemailerError.message);
+      
+      // Check if it's a Gmail rate limit error
+      if (nodemailerError.code === 'EENVELOPE' && nodemailerError.responseCode === 550) {
+        console.error('Gmail daily sending limit exceeded. Please try again tomorrow or use SendGrid.');
+      }
+      
       return false;
     }
   }

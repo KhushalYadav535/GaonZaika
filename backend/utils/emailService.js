@@ -2,8 +2,10 @@ const nodemailer = require('nodemailer');
 const sgMail = require('@sendgrid/mail');
 
 // Initialize SendGrid with API key
-const apiKey = process.env.SENDGRID_API_KEY || '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';
-sgMail.setApiKey(apiKey);
+if (!process.env.SENDGRID_API_KEY) {
+  console.warn('⚠️ SENDGRID_API_KEY environment variable not set. Email service may not work.');
+}
+sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
 // Create nodemailer transporter as fallback
 const createTransporter = () => {

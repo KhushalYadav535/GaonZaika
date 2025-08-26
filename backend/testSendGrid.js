@@ -6,14 +6,17 @@ console.log('Environment variables loaded:');
 console.log('SENDGRID_API_KEY:', process.env.SENDGRID_API_KEY ? 'Set' : 'Not set');
 console.log('API Key starts with SG.:', process.env.SENDGRID_API_KEY ? process.env.SENDGRID_API_KEY.startsWith('SG.') : 'No key');
 
-// Set your SendGrid API key (temporarily hardcoded for testing)
-const apiKey = process.env.SENDGRID_API_KEY || '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';
-sgMail.setApiKey(apiKey);
+// Set your SendGrid API key
+if (!process.env.SENDGRID_API_KEY) {
+  console.error('❌ SENDGRID_API_KEY environment variable not set. Please set it in your .env file.');
+  process.exit(1);
+}
+sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
 async function testSendGrid() {
   console.log('Testing SendGrid Email Service...');
-  console.log('API Key configured:', apiKey ? 'Yes' : 'No');
-  console.log('Using API Key:', apiKey.substring(0, 10) + '...');
+  console.log('API Key configured:', process.env.SENDGRID_API_KEY ? 'Yes' : 'No');
+  console.log('Using API Key:', process.env.SENDGRID_API_KEY ? process.env.SENDGRID_API_KEY.substring(0, 10) + '...' : 'None');
   
   const msg = {
     to: 'test@example.com', // Replace with your test email

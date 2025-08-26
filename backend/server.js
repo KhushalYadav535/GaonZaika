@@ -28,7 +28,7 @@ app.use(morgan('combined'));
 // CORS configuration for multiple origins
 const corsOrigins = process.env.CORS_ORIGIN 
   ? process.env.CORS_ORIGIN.split(',').map(origin => origin.trim())
-  : ['http://localhost:3000', 'http://192.168.1.6:3000'];
+  : ['http://localhost:3000', 'http://192.168.1.5:3000'];
 
 app.use(cors({
   origin: function (origin, callback) {

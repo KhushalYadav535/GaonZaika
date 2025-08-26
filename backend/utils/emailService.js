@@ -1,6 +1,10 @@
 const nodemailer = require('nodemailer');
+const sgMail = require('@sendgrid/mail');
 
-// Create transporter
+// Initialize SendGrid with API key
+sgMail.setApiKey(process.env.SENDGRID_API_KEY || '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');
+
+// Create nodemailer transporter as fallback
 const createTransporter = () => {
   return nodemailer.createTransport({
     host: process.env.EMAIL_HOST || 'smtp.gmail.com',
@@ -13,15 +17,44 @@ const createTransporter = () => {
   });
 };
 
+// Send email using SendGrid (primary) with nodemailer fallback
+const sendEmail = async (emailData) => {
+  try {
+    // Try SendGrid first
+    console.log('Attempting to send email via SendGrid...');
+    await sgMail.send(emailData);
+    console.log('Email sent successfully via SendGrid');
+    return true;
+  } catch (sendGridError) {
+    console.error('SendGrid failed, trying nodemailer fallback:', sendGridError.message);
+    
+    try {
+      // Fallback to nodemailer
+      const transporter = createTransporter();
+      const mailOptions = {
+        from: emailData.from,
+        to: emailData.to,
+        subject: emailData.subject,
+        html: emailData.html
+      };
+      
+      const info = await transporter.sendMail(mailOptions);
+      console.log('Email sent successfully via nodemailer fallback:', info.messageId);
+      return true;
+    } catch (nodemailerError) {
+      console.error('Both SendGrid and nodemailer failed:', nodemailerError.message);
+      return false;
+    }
+  }
+};
+
 // Send OTP email
 const sendOTP = async (email, otp, orderId) => {
   try {
-    console.log('Creating email transporter...');
-    const transporter = createTransporter();
-    console.log('Email transporter created successfully');
+    console.log('Sending OTP email...');
     
-    const mailOptions = {
-      from: process.env.EMAIL_USER || 'gaonzaika@gmail.com',
+    const emailData = {
+      from: 'gaonzaika@gmail.com', // Use your verified sender email
       to: email,
       subject: 'Gaon Zaika - Order Delivery OTP',
       html: `
@@ -58,23 +91,10 @@ const sendOTP = async (email, otp, orderId) => {
       `
     };
     
-    console.log('Sending email with options:', {
-      from: mailOptions.from,
-      to: mailOptions.to,
-      subject: mailOptions.subject
-    });
-    
-    const info = await transporter.sendMail(mailOptions);
-    console.log('OTP email sent successfully:', info.messageId);
-    return true;
+    return await sendEmail(emailData);
     
   } catch (error) {
     console.error('Error sending OTP email:', error);
-    console.error('Error details:', {
-      message: error.message,
-      code: error.code,
-      command: error.command
-    });
     return false;
   }
 };
@@ -82,10 +102,10 @@ const sendOTP = async (email, otp, orderId) => {
 // Send order confirmation email
 const sendOrderConfirmation = async (email, orderData) => {
   try {
-    const transporter = createTransporter();
+    console.log('Sending order confirmation email...');
     
-    const mailOptions = {
-      from: process.env.EMAIL_USER || 'gaonzaika@gmail.com',
+    const emailData = {
+      from: 'gaonzaika@gmail.com', // Use your verified sender email
       to: email,
       subject: 'Gaon Zaika - Order Confirmation',
       html: `
@@ -141,9 +161,7 @@ const sendOrderConfirmation = async (email, orderData) => {
       `
     };
     
-    const info = await transporter.sendMail(mailOptions);
-    console.log('Order confirmation email sent:', info.messageId);
-    return true;
+    return await sendEmail(emailData);
     
   } catch (error) {
     console.error('Error sending order confirmation email:', error);
@@ -154,7 +172,7 @@ const sendOrderConfirmation = async (email, orderData) => {
 // Send order status update email
 const sendOrderStatusUpdate = async (email, orderData, newStatus) => {
   try {
-    const transporter = createTransporter();
+    console.log('Sending order status update email...');
     
     const statusMessages = {
       'Accepted': 'Your order has been accepted by the restaurant and is being prepared.',
@@ -163,8 +181,8 @@ const sendOrderStatusUpdate = async (email, orderData, newStatus) => {
       'Delivered': 'Your order has been delivered successfully. Enjoy your meal!'
     };
     
-    const mailOptions = {
-      from: process.env.EMAIL_USER || 'gaonzaika@gmail.com',
+    const emailData = {
+      from: 'gaonzaika@gmail.com', // Use your verified sender email
       to: email,
       subject: `Gaon Zaika - Order Status Update: ${newStatus}`,
       html: `
@@ -194,9 +212,7 @@ const sendOrderStatusUpdate = async (email, orderData, newStatus) => {
       `
     };
     
-    const info = await transporter.sendMail(mailOptions);
-    console.log('Order status update email sent:', info.messageId);
-    return true;
+    return await sendEmail(emailData);
     
   } catch (error) {
     console.error('Error sending order status update email:', error);
@@ -207,9 +223,10 @@ const sendOrderStatusUpdate = async (email, orderData, newStatus) => {
 // Send email verification OTP
 const sendVerificationOTP = async (email, otp) => {
   try {
-    const transporter = createTransporter();
-    const mailOptions = {
-      from: process.env.EMAIL_USER || 'gaonzaika@gmail.com',
+    console.log('Sending verification OTP email...');
+    
+    const emailData = {
+      from: 'gaonzaika@gmail.com', // Use your verified sender email
       to: email,
       subject: 'Gaon Zaika - Email Verification OTP',
       html: `
@@ -235,11 +252,52 @@ const sendVerificationOTP = async (email, otp) => {
         </div>
       `
     };
-    const info = await transporter.sendMail(mailOptions);
-    console.log('Verification OTP email sent:', info.messageId);
-    return true;
+    
+    return await sendEmail(emailData);
+    
   } catch (error) {
     console.error('Error sending verification OTP email:', error);
+    return false;
+  }
+};
+
+// Send password reset OTP
+const sendPasswordResetOTP = async (email, otp) => {
+  try {
+    console.log('Sending password reset OTP email...');
+    
+    const emailData = {
+      from: 'gaonzaika@gmail.com', // Use your verified sender email
+      to: email,
+      subject: 'Gaon Zaika - Password Reset OTP',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <div style="background-color: #4CAF50; color: white; padding: 20px; text-align: center;">
+            <h1>Gaon Zaika</h1>
+            <p>Village Food Delivery</p>
+          </div>
+          <div style="padding: 20px; background-color: #f9f9f9;">
+            <h2>Password Reset OTP</h2>
+            <p>Hello!</p>
+            <p>You requested to reset your password. Your OTP is:</p>
+            <div style="background-color: white; border: 2px solid #4CAF50; border-radius: 8px; padding: 20px; text-align: center; margin: 20px 0;">
+              <h1 style="color: #4CAF50; font-size: 32px; margin: 0; letter-spacing: 8px;">${otp}</h1>
+            </div>
+            <p>This OTP is valid for 10 minutes. Please enter it in the app to reset your password.</p>
+            <p>If you did not request this, please ignore this email.</p>
+            <p>Thank you for choosing Gaon Zaika!</p>
+          </div>
+          <div style="background-color: #333; color: white; padding: 20px; text-align: center;">
+            <p>&copy; 2024 Gaon Zaika. All rights reserved.</p>
+          </div>
+        </div>
+      `
+    };
+    
+    return await sendEmail(emailData);
+    
+  } catch (error) {
+    console.error('Error sending password reset OTP email:', error);
     return false;
   }
 };
@@ -248,5 +306,6 @@ module.exports = {
   sendOTP,
   sendOrderConfirmation,
   sendOrderStatusUpdate,
-  sendVerificationOTP
+  sendVerificationOTP,
+  sendPasswordResetOTP
 }; 

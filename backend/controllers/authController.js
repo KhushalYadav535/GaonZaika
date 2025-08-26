@@ -6,7 +6,7 @@ const Admin = require('../models/Admin');
 const Restaurant = require('../models/Restaurant');
 const jwt = require('jsonwebtoken');
 const { validationResult } = require('express-validator');
-const { sendOTP, sendVerificationOTP } = require('../utils/emailService');
+const { sendOTP, sendVerificationOTP, sendPasswordResetOTP } = require('../utils/emailService');
 
 // Generate JWT Token
 const generateToken = (userId, role) => {
@@ -51,10 +51,10 @@ exports.forgotPassword = async (req, res) => {
     await user.save();
     // Send OTP via email
     try {
-      await sendOTP(email, otp, 'Password Reset');
+      await sendPasswordResetOTP(email, otp);
     } catch (e) {
       // Log but don't fail
-      console.error('Error sending OTP email:', e);
+      console.error('Error sending password reset OTP email:', e);
     }
     return res.json({ success: true, message: 'If this email exists, an OTP has been sent.' });
   } catch (error) {

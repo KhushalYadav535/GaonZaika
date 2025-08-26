@@ -229,15 +229,6 @@ router.post('/:orderId/verify-otp', async (req, res) => {
     order.actualDeliveryTime = new Date();
     await order.save();
 
-    // Send email notification to customer on delivery completion
-    if (order.customerInfo && order.customerInfo.email) {
-      try {
-        await sendOrderStatusUpdate(order.customerInfo.email, order, 'Delivered');
-      } catch (emailError) {
-        console.error('Failed to send delivery completion email:', emailError);
-      }
-    }
-
     res.json({ 
       success: true, 
       message: 'OTP verified successfully, order marked as delivered',

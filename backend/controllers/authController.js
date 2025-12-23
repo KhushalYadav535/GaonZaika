@@ -7,6 +7,7 @@ const Restaurant = require('../models/Restaurant');
 const jwt = require('jsonwebtoken');
 const { validationResult } = require('express-validator');
 const { sendOTP, sendVerificationOTP, sendPasswordResetOTP } = require('../utils/emailService');
+const { sendLoginOTP, sendRegistrationOTP } = require('../utils/smsService');
 
 // Generate JWT Token
 const generateToken = (userId, role) => {
@@ -541,6 +542,321 @@ exports.loginCustomer = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Login failed',
+      error: error.message
+    });
+  }
+};
+
+// Customer Phone-based OTP Authentication
+// Send OTP for login
+exports.sendCustomerLoginOTP = async (req, res) => {
+  try {
+    const { phone } = req.body;
+    
+    if (!phone) {
+      return res.status(400).json({
+        success: false,
+        message: 'Phone number is required'
+      });
+    }
+
+    // Format phone number (add country code if not present)
+    let formattedPhone = phone.trim();
+    if (!formattedPhone.startsWith('+')) {
+      formattedPhone = '+91' + formattedPhone.replace(/^0+/, '');
+    }
+
+    // Find customer by phone
+    const customer = await Customer.findOne({ phone: formattedPhone, isActive: true });
+
+    if (!customer) {
+      // For security, don't reveal if phone exists
+      return res.json({
+        success: true,
+        message: 'If this phone number is registered, an OTP has been sent.'
+      });
+    }
+
+    // Generate OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+    // Store OTP in customer record
+    customer.phoneOTP = { code: otp, expiresAt };
+    await customer.save();
+
+    // Send OTP via SMS
+    const smsSent = await sendLoginOTP(formattedPhone, otp);
+    
+    if (!smsSent) {
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to send OTP. Please try again.'
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'OTP sent to your phone number'
+    });
+
+  } catch (error) {
+    console.error('Send customer login OTP error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to send OTP',
+      error: error.message
+    });
+  }
+};
+
+// Verify OTP and login
+exports.verifyCustomerLoginOTP = async (req, res) => {
+  try {
+    const { phone, otp } = req.body;
+
+    if (!phone || !otp) {
+      return res.status(400).json({
+        success: false,
+        message: 'Phone number and OTP are required'
+      });
+    }
+
+    // Format phone number
+    let formattedPhone = phone.trim();
+    if (!formattedPhone.startsWith('+')) {
+      formattedPhone = '+91' + formattedPhone.replace(/^0+/, '');
+    }
+
+    // Find customer
+    const customer = await Customer.findOne({ phone: formattedPhone, isActive: true });
+
+    if (!customer) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid phone number'
+      });
+    }
+
+    // Check if OTP exists and is valid
+    if (!customer.phoneOTP || !customer.phoneOTP.code) {
+      return res.status(400).json({
+        success: false,
+        message: 'OTP not found. Please request a new OTP.'
+      });
+    }
+
+    // Check if OTP is expired
+    if (new Date() > customer.phoneOTP.expiresAt) {
+      customer.phoneOTP = undefined;
+      await customer.save();
+      return res.status(400).json({
+        success: false,
+        message: 'OTP expired. Please request a new OTP.'
+      });
+    }
+
+    // Verify OTP
+    if (customer.phoneOTP.code !== otp) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid OTP'
+      });
+    }
+
+    // Clear OTP
+    customer.phoneOTP = undefined;
+    customer.isPhoneVerified = true;
+    await customer.updateLastLogin();
+    await customer.save();
+
+    // Generate token
+    const token = generateToken(customer._id, 'customer');
+
+    res.json({
+      success: true,
+      message: 'Login successful',
+      data: {
+        token,
+        customer: {
+          id: customer._id,
+          name: customer.name,
+          email: customer.email,
+          phone: customer.phone,
+          addresses: customer.addresses
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('Verify customer login OTP error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Login failed',
+      error: error.message
+    });
+  }
+};
+
+// Send OTP for registration
+exports.sendCustomerRegistrationOTP = async (req, res) => {
+  try {
+    const { name, phone } = req.body;
+
+    if (!name || !phone) {
+      return res.status(400).json({
+        success: false,
+        message: 'Name and phone number are required'
+      });
+    }
+
+    // Format phone number
+    let formattedPhone = phone.trim();
+    if (!formattedPhone.startsWith('+')) {
+      formattedPhone = '+91' + formattedPhone.replace(/^0+/, '');
+    }
+
+    // Check if customer already exists
+    const existingCustomer = await Customer.findOne({ phone: formattedPhone });
+
+    if (existingCustomer) {
+      return res.status(400).json({
+        success: false,
+        message: 'Customer with this phone number already exists'
+      });
+    }
+
+    // Generate OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+    // Store registration data temporarily
+    global.registrationData = global.registrationData || {};
+    global.registrationData[formattedPhone] = {
+      name,
+      phone: formattedPhone,
+      role: 'customer',
+      otp,
+      expiresAt
+    };
+
+    // Send OTP via SMS
+    const smsSent = await sendRegistrationOTP(formattedPhone, otp);
+    
+    if (!smsSent) {
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to send OTP. Please try again.'
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'OTP sent to your phone number'
+    });
+
+  } catch (error) {
+    console.error('Send customer registration OTP error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to send OTP',
+      error: error.message
+    });
+  }
+};
+
+// Verify OTP and register
+exports.verifyCustomerRegistrationOTP = async (req, res) => {
+  try {
+    const { phone, otp } = req.body;
+
+    if (!phone || !otp) {
+      return res.status(400).json({
+        success: false,
+        message: 'Phone number and OTP are required'
+      });
+    }
+
+    // Format phone number
+    let formattedPhone = phone.trim();
+    if (!formattedPhone.startsWith('+')) {
+      formattedPhone = '+91' + formattedPhone.replace(/^0+/, '');
+    }
+
+    // Get stored registration data
+    if (!global.registrationData || !global.registrationData[formattedPhone]) {
+      return res.status(400).json({
+        success: false,
+        message: 'Registration session expired. Please register again.'
+      });
+    }
+
+    const registrationData = global.registrationData[formattedPhone];
+
+    // Check if OTP is expired
+    if (new Date() > registrationData.expiresAt) {
+      delete global.registrationData[formattedPhone];
+      return res.status(400).json({
+        success: false,
+        message: 'OTP expired. Please register again.'
+      });
+    }
+
+    // Verify OTP
+    if (registrationData.otp !== otp) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid OTP'
+      });
+    }
+
+    // Check if customer already exists (double check)
+    const existingCustomer = await Customer.findOne({ phone: formattedPhone });
+    if (existingCustomer) {
+      delete global.registrationData[formattedPhone];
+      return res.status(400).json({
+        success: false,
+        message: 'Customer with this phone number already exists'
+      });
+    }
+
+    // Create customer (no password needed for phone-based auth)
+    const customer = new Customer({
+      name: registrationData.name,
+      phone: formattedPhone,
+      email: `${formattedPhone.replace(/\+/g, '')}@gaonzaika.com`, // Generate email from phone
+      password: Math.random().toString(36).slice(-12), // Random password (not used for phone auth)
+      isPhoneVerified: true,
+      isEmailVerified: false
+    });
+
+    await customer.save();
+
+    // Generate token
+    const token = generateToken(customer._id, 'customer');
+
+    // Clean up registration data
+    delete global.registrationData[formattedPhone];
+
+    res.status(201).json({
+      success: true,
+      message: 'Customer registered successfully',
+      data: {
+        token,
+        customer: {
+          id: customer._id,
+          name: customer.name,
+          phone: customer.phone,
+          email: customer.email
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('Verify customer registration OTP error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Registration failed',
       error: error.message
     });
   }

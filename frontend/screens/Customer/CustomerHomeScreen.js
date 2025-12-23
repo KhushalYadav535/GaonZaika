@@ -416,7 +416,7 @@ const CustomerHomeScreen = ({ navigation }) => {
             <View style={styles.restaurantHeader}>
               <Text style={styles.restaurantName} numberOfLines={1}>{item.name}</Text>
               <View style={styles.ratingContainer}>
-                <MaterialIcons name="star" size={16} color="#FFD700" />
+                <MaterialIcons name="star" size={14} color="#FFD700" />
                 <Text style={styles.ratingValue}>{item.rating}</Text>
                 <Text style={styles.ratingCount}>({item.totalRatings})</Text>
               </View>
@@ -429,7 +429,7 @@ const CustomerHomeScreen = ({ navigation }) => {
             {/* Location Info */}
             <View style={styles.locationInfo}>
               <View style={styles.locationItem}>
-                <MaterialIcons name="location-on" size={16} color="#4CAF50" />
+                <MaterialIcons name="location-on" size={14} color="#4CAF50" />
                 <Text style={styles.locationText} numberOfLines={1}>{item.distance}</Text>
               </View>
               <Text style={styles.addressText} numberOfLines={1}>
@@ -440,15 +440,15 @@ const CustomerHomeScreen = ({ navigation }) => {
             {/* Restaurant Details */}
             <View style={styles.restaurantDetails}>
               <View style={styles.detailItem}>
-                <MaterialIcons name="access-time" size={16} color="#FF9800" />
+                <MaterialIcons name="access-time" size={14} color="#FF9800" />
                 <Text style={styles.detailText}>{item.estimatedDeliveryTime}</Text>
               </View>
               <View style={styles.detailItem}>
-                <MaterialIcons name="attach-money" size={16} color="#4CAF50" />
+                <MaterialIcons name="attach-money" size={14} color="#4CAF50" />
                 <Text style={styles.detailText}>Min ₹{item.minOrder}</Text>
               </View>
               <View style={styles.detailItem}>
-                <MaterialIcons name="local-shipping" size={16} color="#2196F3" />
+                <MaterialIcons name="local-shipping" size={14} color="#2196F3" />
                 <Text style={styles.detailText}>₹{item.deliveryFee}</Text>
               </View>
             </View>
@@ -543,7 +543,7 @@ const CustomerHomeScreen = ({ navigation }) => {
             }
           ]}
         >
-          <MaterialIcons name="search" size={24} color="#4CAF50" style={styles.searchIcon} />
+          <MaterialIcons name="search" size={20} color="#4CAF50" style={styles.searchIcon} />
           <TextInput
             style={styles.searchInput}
             placeholder="Search restaurants, cuisines, or dishes..."
@@ -558,11 +558,11 @@ const CustomerHomeScreen = ({ navigation }) => {
           />
           {searchQuery.length > 0 && (
             <TouchableOpacity onPress={() => setSearchQuery('')} style={styles.clearButton}>
-              <MaterialIcons name="close" size={20} color="#999" />
+              <MaterialIcons name="close" size={18} color="#999" />
             </TouchableOpacity>
           )}
           <TouchableOpacity style={styles.filterButton}>
-            <MaterialIcons name="tune" size={20} color="#4CAF50" />
+            <MaterialIcons name="tune" size={18} color="#4CAF50" />
           </TouchableOpacity>
         </Animated.View>
 
@@ -578,20 +578,17 @@ const CustomerHomeScreen = ({ navigation }) => {
         >
           <MaterialIcons 
             name={userLocation ? "location-on" : "location-off"} 
-            size={20} 
+            size={16} 
             color="white" 
           />
           <Text style={styles.locationText}>
             {userLocation ? `Within ${searchRadius}km of your location` : 'Location disabled'}
           </Text>
-          <TouchableOpacity onPress={() => setShowLocationModal(true)} style={styles.settingsButton}>
-            <MaterialIcons name="settings" size={20} color="white" />
-          </TouchableOpacity>
           {userLocation && (
             <TouchableOpacity onPress={handleLocationRefresh} disabled={locationLoading}>
               <MaterialIcons 
                 name="refresh" 
-                size={20} 
+                size={16} 
                 color="white" 
                 style={locationLoading ? styles.rotating : null}
               />
@@ -835,14 +832,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: 'white',
     marginHorizontal: 20,
-    paddingHorizontal: 15,
-    paddingVertical: 10,
-    borderRadius: 20,
-    elevation: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 16,
+    elevation: 4,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.12,
-    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
   },
   searchContainerFocused: {
     elevation: 8,
@@ -854,7 +851,7 @@ const styles = StyleSheet.create({
   },
   searchInput: {
     flex: 1,
-    fontSize: 14,
+    fontSize: 13,
     color: '#333',
   },
   clearButton: {
@@ -868,22 +865,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    paddingHorizontal: 15,
-    paddingVertical: 10,
-    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
     alignSelf: 'flex-start',
     marginHorizontal: 20,
-    marginTop: 15,
+    marginTop: 12,
   },
   locationText: {
-    fontSize: 14,
+    fontSize: 12,
     color: 'white',
-    marginLeft: 8,
-    marginRight: 12,
+    marginLeft: 6,
+    marginRight: 8,
     fontWeight: '500',
-  },
-  settingsButton: {
-    marginRight: 12,
   },
   rotating: {
     transform: [{ rotate: '360deg' }],
@@ -948,17 +942,17 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   listContainer: {
-    padding: 20,
+    padding: 16,
   },
   restaurantCard: {
     backgroundColor: 'white',
-    borderRadius: 20,
-    marginBottom: 20,
-    elevation: 12,
+    borderRadius: 16,
+    marginBottom: 16,
+    elevation: 8,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
     overflow: 'hidden',
   },
   closedRestaurantCard: {
@@ -969,7 +963,7 @@ const styles = StyleSheet.create({
   },
   restaurantImage: {
     width: '100%',
-    height: 200,
+    height: 150,
     resizeMode: 'cover',
   },
   imageOverlay: {
@@ -977,7 +971,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    height: 80,
+    height: 60,
   },
   statusBadge: {
     position: 'absolute',
@@ -1039,7 +1033,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   restaurantInfo: {
-    padding: 15,
+    padding: 12,
   },
   restaurantHeader: {
     flexDirection: 'row',
@@ -1048,7 +1042,7 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   restaurantName: {
-    fontSize: 22,
+    fontSize: 18,
     fontWeight: 'bold',
     color: '#333',
     flex: 1,
@@ -1058,21 +1052,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   ratingValue: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: 'bold',
     color: '#333',
-    marginLeft: 4,
+    marginLeft: 3,
   },
   ratingCount: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#666',
-    marginLeft: 4,
+    marginLeft: 3,
   },
   cuisine: {
-    fontSize: 16,
+    fontSize: 14,
     color: '#4CAF50',
     fontWeight: '600',
-    marginBottom: 8,
+    marginBottom: 6,
   },
   locationInfo: {
     marginBottom: 8,
@@ -1083,32 +1077,32 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   locationText: {
-    fontSize: 14,
+    fontSize: 12,
     color: '#666',
-    marginLeft: 6,
+    marginLeft: 4,
     fontWeight: '500',
   },
   addressText: {
-    fontSize: 13,
+    fontSize: 11,
     color: '#999',
-    marginLeft: 22,
+    marginLeft: 20,
     fontStyle: 'italic',
   },
   restaurantDetails: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingTop: 8,
+    paddingTop: 6,
     borderTopWidth: 1,
     borderTopColor: '#f0f0f0',
-    marginBottom: 10,
+    marginBottom: 8,
   },
   detailItem: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   detailText: {
-    marginLeft: 6,
-    fontSize: 14,
+    marginLeft: 4,
+    fontSize: 12,
     color: '#666',
     fontWeight: '500',
   },
@@ -1125,14 +1119,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 20,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
   },
   orderNowText: {
     color: 'white',
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '600',
-    marginLeft: 8,
+    marginLeft: 6,
   },
   emptyContainer: {
     flex: 1,

@@ -81,6 +81,14 @@ const customerSchema = new mongoose.Schema({
   emailVerificationOTP: {
     code: String,
     expiresAt: Date
+  },
+  phoneOTP: {
+    code: String,
+    expiresAt: Date
+  },
+  isPhoneVerified: {
+    type: Boolean,
+    default: false
   }
 }, {
   timestamps: true

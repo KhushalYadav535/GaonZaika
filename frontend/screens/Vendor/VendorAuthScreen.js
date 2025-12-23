@@ -15,6 +15,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import apiService from '../../services/apiService';
 import { safeNavigate, debugNavigation, navigateAfterLogin } from '../../utils/navigationUtils';
+import { initializeNotificationsAfterLogin } from '../../utils/notificationUtils';
 
 const { width } = Dimensions.get('window');
 
@@ -63,6 +64,9 @@ const VendorAuthScreen = ({ navigation }) => {
           
           Alert.alert('Success', 'Login successful!');
           
+          // Initialize notifications after successful login
+          await initializeNotificationsAfterLogin();
+          
           // Use simple navigation for production builds
           const success = navigateAfterLogin(navigation, 'VendorTabs');
           if (!success) {
@@ -82,7 +86,11 @@ const VendorAuthScreen = ({ navigation }) => {
           restaurantAddress
         };
         
+        console.log('Attempting vendor registration with data:', { ...userData, password: '***' });
+        
         const response = await apiService.vendorRegister(userData);
+        
+        console.log('Vendor registration response:', response.data);
         
         if (response.data.success) {
           // Navigate to OTP verification screen
@@ -97,6 +105,17 @@ const VendorAuthScreen = ({ navigation }) => {
       }
     } catch (error) {
       console.error('Auth error:', error);
+      console.error('Error details:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        config: {
+          url: error.config?.url,
+          method: error.config?.method,
+          baseURL: error.config?.baseURL
+        }
+      });
       
       // Handle different types of errors
       if (error.message === 'No internet connection') {
@@ -111,16 +130,40 @@ const VendorAuthScreen = ({ navigation }) => {
           'The request took too long. Please check your connection and try again.',
           [{ text: 'OK' }]
         );
+      } else if (error.response?.status === 400) {
+        // Validation errors
+        const errorMessage = error.response?.data?.message || 
+                            (error.response?.data?.errors && 
+                             error.response.data.errors.map(e => e.msg || e.message).join('\n')) ||
+                            'Please check your input and try again.';
+        Alert.alert(
+          'Validation Error', 
+          errorMessage,
+          [{ text: 'OK' }]
+        );
       } else if (error.response?.status === 500) {
         Alert.alert(
           'Server Error', 
           'Server is temporarily unavailable. Please try again in a few moments.',
           [{ text: 'OK' }]
         );
+      } else if (error.response?.status >= 400 && error.response?.status < 500) {
+        // Other client errors
+        const errorMessage = error.response?.data?.message || 
+                            'Invalid request. Please check your information and try again.';
+        Alert.alert(
+          'Registration Error', 
+          errorMessage,
+          [{ text: 'OK' }]
+        );
       } else {
+        // Network or other errors
+        const errorMessage = error.response?.data?.message || 
+                            error.message || 
+                            'Authentication failed. Please try again.';
         Alert.alert(
           'Authentication Error', 
-          error.response?.data?.message || 'Authentication failed. Please try again.',
+          errorMessage,
           [{ text: 'OK' }]
         );
       }

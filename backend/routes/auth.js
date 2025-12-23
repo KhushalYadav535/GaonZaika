@@ -47,9 +47,29 @@ const validateLogin = [
   body('password').notEmpty().withMessage('Password is required')
 ];
 
-// Customer Routes
+// Customer Routes (Email-based - kept for backward compatibility)
 router.post('/customer/register', validateRegistration('customer'), authController.registerCustomer);
 router.post('/customer/login', validateLogin, authController.loginCustomer);
+
+// Customer Phone-based OTP Routes
+router.post('/customer/send-login-otp', [
+  body('phone').notEmpty().withMessage('Phone number is required')
+], authController.sendCustomerLoginOTP);
+
+router.post('/customer/verify-login-otp', [
+  body('phone').notEmpty().withMessage('Phone number is required'),
+  body('otp').isLength({ min: 6, max: 6 }).withMessage('OTP must be 6 digits')
+], authController.verifyCustomerLoginOTP);
+
+router.post('/customer/send-registration-otp', [
+  body('name').notEmpty().withMessage('Name is required'),
+  body('phone').notEmpty().withMessage('Phone number is required')
+], authController.sendCustomerRegistrationOTP);
+
+router.post('/customer/verify-registration-otp', [
+  body('phone').notEmpty().withMessage('Phone number is required'),
+  body('otp').isLength({ min: 6, max: 6 }).withMessage('OTP must be 6 digits')
+], authController.verifyCustomerRegistrationOTP);
 
 // Vendor Routes
 router.post('/vendor/register', validateRegistration('vendor'), authController.registerVendor);

@@ -4,6 +4,7 @@ import { createStackNavigator } from '@react-navigation/stack';
 import { StatusBar } from 'expo-status-bar';
 import { Provider as PaperProvider } from 'react-native-paper';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { usePushNotifications } from './hooks/usePushNotifications';
 
 // Import screens
 import SplashScreen from './screens/SplashScreen';
@@ -23,6 +24,9 @@ const Stack = createStackNavigator();
 export default function App() {
   const [isLoading, setIsLoading] = useState(true);
   const [initialRoute, setInitialRoute] = useState('RoleSelection');
+  
+  // Initialize push notifications globally
+  const { isInitialized, hasPermission, pushToken } = usePushNotifications();
 
   useEffect(() => {
     checkAuthenticationStatus();

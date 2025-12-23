@@ -14,6 +14,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import apiService from '../../services/apiService';
 import { safeNavigate, debugNavigation, navigateAfterLogin } from '../../utils/navigationUtils';
+import { initializeNotificationsAfterLogin } from '../../utils/notificationUtils';
 
 const { width } = Dimensions.get('window');
 
@@ -54,6 +55,9 @@ const DeliveryAuthScreen = ({ navigation }) => {
           
           console.log('Delivery login successful:', deliveryPerson);
           Alert.alert('Success', 'Login successful!');
+          
+          // Initialize notifications after successful login
+          await initializeNotificationsAfterLogin();
           
           // Use simple navigation for production builds
           const success = navigateAfterLogin(navigation, 'DeliveryTabs');

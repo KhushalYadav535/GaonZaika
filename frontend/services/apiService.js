@@ -9,8 +9,11 @@ let BASE_URL = CONFIG.API_BASE_URL;
 // If running in development (Expo Go, localhost), use local IP
 if (__DEV__) {
   // Try to use the local IP if available (for mobile dev)
-  BASE_URL = 'http://192.168.1.5:3000/api';
+  BASE_URL = 'http://10.148.214.24:3000/api';
 }
+
+// Log the BASE_URL being used (helpful for debugging)
+console.log('API Base URL:', BASE_URL, '| __DEV__:', __DEV__);
 
 // Create axios instance for API calls
 const api = axios.create({
@@ -68,7 +71,9 @@ const retryRequest = async (requestFn, maxRetries = 3, delay = 1000) => {
 // Request interceptor for API calls
 api.interceptors.request.use(
   async (config) => {
-    console.log('API Request:', config.method?.toUpperCase(), config.url);
+    const fullUrl = `${config.baseURL}${config.url}`;
+    console.log('API Request:', config.method?.toUpperCase(), fullUrl);
+    console.log('Request data:', config.data ? { ...config.data, password: config.data.password ? '***' : undefined } : 'No data');
     
     // Add authentication token if available
     try {
@@ -105,11 +110,21 @@ api.interceptors.request.use(
 // Response interceptor for API calls
 api.interceptors.response.use(
   (response) => {
-    console.log('API Response:', response.status, response.config.url);
+    const fullUrl = `${response.config.baseURL}${response.config.url}`;
+    console.log('API Response Success:', response.status, fullUrl);
+    console.log('Response data:', response.data);
     return response;
   },
   async (error) => {
-    console.error('API Response Error:', error.response?.status, error.message);
+    const fullUrl = error.config ? `${error.config.baseURL}${error.config.url}` : 'Unknown URL';
+    console.error('API Response Error:', {
+      status: error.response?.status,
+      statusText: error.response?.statusText,
+      message: error.message,
+      url: fullUrl,
+      responseData: error.response?.data,
+      requestData: error.config?.data
+    });
     
     // Handle 401 errors - token might be expired or invalid
     if (error.response?.status === 401) {
@@ -159,6 +174,12 @@ export const apiService = {
   // Auth APIs with retry logic
   customerRegister: (userData) => retryRequest(() => api.post('/auth/customer/register', userData)),
   customerLogin: (credentials) => retryRequest(() => api.post('/auth/customer/login', credentials)),
+  
+  // Customer Phone-based OTP APIs
+  sendCustomerLoginOTP: (phone) => retryRequest(() => api.post('/auth/customer/send-login-otp', { phone })),
+  verifyCustomerLoginOTP: (phone, otp) => retryRequest(() => api.post('/auth/customer/verify-login-otp', { phone, otp })),
+  sendCustomerRegistrationOTP: (name, phone) => retryRequest(() => api.post('/auth/customer/send-registration-otp', { name, phone })),
+  verifyCustomerRegistrationOTP: (phone, otp) => retryRequest(() => api.post('/auth/customer/verify-registration-otp', { phone, otp })),
   vendorRegister: (userData) => retryRequest(() => api.post('/auth/vendor/register', userData)),
   vendorLogin: (credentials) => retryRequest(() => api.post('/auth/vendor/login', credentials)),
   deliveryRegister: (userData) => retryRequest(() => api.post('/auth/delivery/register', userData)),
@@ -298,6 +319,19 @@ export const apiService = {
   // Registration OTP APIs
   sendRegistrationOTP: (registrationData) => retryRequest(() => api.post('/auth/send-registration-otp', registrationData)),
   verifyRegistrationOTP: (otpData) => retryRequest(() => api.post('/auth/verify-registration-otp', otpData)),
+  
+  // Push Notification APIs
+  savePushToken: (pushToken) => api.post('/push-notifications/save-token', { pushToken }),
+  removePushToken: () => api.delete('/push-notifications/remove-token'),
+  sendTestNotification: (title, body) => api.post('/push-notifications/send-test', { title, body }),
+  requestOrderStatusUpdate: (orderId, status, customerId, restaurantName) =>
+    api.post('/push-notifications/order-status-update', { orderId, status, customerId, restaurantName }),
+  requestNewOrderToVendor: (orderId, vendorId, customerName, totalAmount) =>
+    api.post('/push-notifications/new-order-vendor', { orderId, vendorId, customerName, totalAmount }),
+  requestDeliveryUpdate: (orderId, status, customerId, estimatedTime) =>
+    api.post('/push-notifications/delivery-update', { orderId, status, customerId, estimatedTime }),
+  sendPromotionalNotification: (title, body, promoCode) =>
+    api.post('/push-notifications/promotional', { title, body, promoCode }),
 };
 
 // Export the real apiService

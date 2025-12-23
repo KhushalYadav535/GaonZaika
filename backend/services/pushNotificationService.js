@@ -15,6 +15,9 @@ class PushNotificationService {
         body: body,
         data: data,
         priority: 'high',
+        vibrate: [0, 250, 250, 250],
+        badge: 1,
+        channelId: 'order-notifications',
       };
 
       const response = await axios.post(this.expoPushUrl, message, {
@@ -43,6 +46,9 @@ class PushNotificationService {
         body: body,
         data: data,
         priority: 'high',
+        vibrate: [0, 250, 250, 250],
+        badge: 1,
+        channelId: 'order-notifications',
       }));
 
       const response = await axios.post(this.expoPushUrl, messages, {

@@ -11,9 +11,7 @@ class PushNotificationApiService {
         return false;
       }
 
-      const response = await apiService.post('/push-notifications/save-token', {
-        pushToken: pushToken
-      });
+      const response = await apiService.savePushToken(pushToken);
 
       console.log('Push token saved to backend:', response.data);
       return true;
@@ -26,7 +24,7 @@ class PushNotificationApiService {
   // Remove push token from backend
   async removePushToken() {
     try {
-      const response = await apiService.delete('/push-notifications/remove-token');
+      const response = await apiService.removePushToken();
       console.log('Push token removed from backend:', response.data);
       return true;
     } catch (error) {
@@ -38,10 +36,7 @@ class PushNotificationApiService {
   // Send test notification
   async sendTestNotification(title = 'Test Notification', body = 'This is a test notification') {
     try {
-      const response = await apiService.post('/push-notifications/send-test', {
-        title: title,
-        body: body
-      });
+      const response = await apiService.sendTestNotification(title, body);
 
       console.log('Test notification sent:', response.data);
       return response.data;
@@ -54,12 +49,7 @@ class PushNotificationApiService {
   // Request order status update notification
   async requestOrderStatusUpdate(orderId, status, customerId, restaurantName) {
     try {
-      const response = await apiService.post('/push-notifications/order-status-update', {
-        orderId: orderId,
-        status: status,
-        customerId: customerId,
-        restaurantName: restaurantName
-      });
+      const response = await apiService.requestOrderStatusUpdate(orderId, status, customerId, restaurantName);
 
       console.log('Order status update notification requested:', response.data);
       return response.data;
@@ -72,12 +62,7 @@ class PushNotificationApiService {
   // Request new order notification to vendor
   async requestNewOrderToVendor(orderId, vendorId, customerName, totalAmount) {
     try {
-      const response = await apiService.post('/push-notifications/new-order-vendor', {
-        orderId: orderId,
-        vendorId: vendorId,
-        customerName: customerName,
-        totalAmount: totalAmount
-      });
+      const response = await apiService.requestNewOrderToVendor(orderId, vendorId, customerName, totalAmount);
 
       console.log('New order notification to vendor requested:', response.data);
       return response.data;
@@ -90,12 +75,7 @@ class PushNotificationApiService {
   // Request delivery update notification
   async requestDeliveryUpdate(orderId, status, customerId, estimatedTime) {
     try {
-      const response = await apiService.post('/push-notifications/delivery-update', {
-        orderId: orderId,
-        status: status,
-        customerId: customerId,
-        estimatedTime: estimatedTime
-      });
+      const response = await apiService.requestDeliveryUpdate(orderId, status, customerId, estimatedTime);
 
       console.log('Delivery update notification requested:', response.data);
       return response.data;
@@ -108,11 +88,7 @@ class PushNotificationApiService {
   // Send promotional notification (admin only)
   async sendPromotionalNotification(title, body, promoCode = null) {
     try {
-      const response = await apiService.post('/push-notifications/promotional', {
-        title: title,
-        body: body,
-        promoCode: promoCode
-      });
+      const response = await apiService.sendPromotionalNotification(title, body, promoCode);
 
       console.log('Promotional notification sent:', response.data);
       return response.data;

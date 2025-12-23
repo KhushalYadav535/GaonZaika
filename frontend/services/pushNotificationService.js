@@ -1,5 +1,6 @@
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
+import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -12,6 +13,20 @@ Notifications.setNotificationHandler({
   }),
 });
 
+// Create notification channel for Android
+const createNotificationChannel = async () => {
+  if (Platform.OS === 'android') {
+    await Notifications.setNotificationChannelAsync('order-notifications', {
+      name: 'Order Notifications',
+      description: 'Notifications for new orders and order updates',
+      importance: Notifications.AndroidImportance.HIGH,
+      vibrationPattern: [0, 250, 250, 250],
+      lightColor: '#FF231F7C',
+      sound: 'default',
+    });
+  }
+};
+
 class PushNotificationService {
   constructor() {
     this.expoPushToken = null;
@@ -22,6 +37,9 @@ class PushNotificationService {
   // Initialize push notifications
   async initialize() {
     try {
+      // Create notification channel first
+      await createNotificationChannel();
+      
       // Check if device supports push notifications
       if (!Device.isDevice) {
         console.log('Push notifications only work on physical devices');
@@ -42,10 +60,16 @@ class PushNotificationService {
         return false;
       }
 
-      // Get the token
-      const token = await Notifications.getExpoPushTokenAsync({
-        projectId: 'your-project-id-here', // Update this with your actual Expo project ID
-      });
+      // Determine EAS project ID from app config (works in Expo Go and builds)
+      const projectId =
+        (Constants?.expoConfig?.extra?.eas?.projectId) ||
+        (Constants?.manifest?.extra?.eas?.projectId) ||
+        null;
+
+      // Get the token (provide projectId only if available to avoid invalid uuid errors)
+      const token = projectId
+        ? await Notifications.getExpoPushTokenAsync({ projectId })
+        : await Notifications.getExpoPushTokenAsync();
 
       this.expoPushToken = token.data;
       console.log('Expo push token:', this.expoPushToken);

@@ -14,6 +14,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import apiService from '../services/apiService';
 import { navigateAfterLogin } from '../utils/navigationUtils';
+import { initializeNotificationsAfterLogin } from '../utils/notificationUtils';
 
 const { width } = Dimensions.get('window');
 
@@ -83,6 +84,7 @@ const RegistrationOTPScreen = ({ navigation, route }) => {
             await AsyncStorage.setItem('customerData', JSON.stringify(userData.user));
             await AsyncStorage.setItem('customerToken', token);
             Alert.alert('Success', 'Registration successful!');
+            await initializeNotificationsAfterLogin();
             navigateAfterLogin(navigation, 'CustomerTabs');
             break;
             
@@ -90,6 +92,7 @@ const RegistrationOTPScreen = ({ navigation, route }) => {
             await AsyncStorage.setItem('vendorData', JSON.stringify(userData.user));
             await AsyncStorage.setItem('vendorToken', token);
             Alert.alert('Success', 'Registration successful!');
+            await initializeNotificationsAfterLogin();
             navigateAfterLogin(navigation, 'VendorTabs');
             break;
             
@@ -97,6 +100,7 @@ const RegistrationOTPScreen = ({ navigation, route }) => {
             await AsyncStorage.setItem('deliveryData', JSON.stringify(userData.user));
             await AsyncStorage.setItem('deliveryToken', token);
             Alert.alert('Success', 'Registration successful!');
+            await initializeNotificationsAfterLogin();
             navigateAfterLogin(navigation, 'DeliveryTabs');
             break;
             

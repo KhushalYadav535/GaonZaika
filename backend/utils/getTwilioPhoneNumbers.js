@@ -7,11 +7,17 @@
 const twilio = require('twilio');
 require('dotenv').config();
 
-const accountSid = process.env.TWILIO_ACCOUNT_SID || 'ACc37399e7e1bb57671221d7e2896e015e';
-const authToken = process.env.TWILIO_AUTH_TOKEN || '013d229377c4624c5692329a71fdd316';
+// Use ONLY environment variables here. Do not hardcode real credentials.
+const accountSid = process.env.TWILIO_ACCOUNT_SID;
+const authToken = process.env.TWILIO_AUTH_TOKEN;
 
 async function getTwilioPhoneNumbers() {
   try {
+    if (!accountSid || !authToken) {
+      console.error('Twilio credentials not set. Please configure TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN in your .env file.');
+      return;
+    }
+
     const client = twilio(accountSid, authToken);
     
     console.log('Fetching phone numbers from Twilio account:', accountSid.substring(0, 10) + '...');

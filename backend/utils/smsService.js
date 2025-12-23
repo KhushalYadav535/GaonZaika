@@ -2,18 +2,25 @@ const twilio = require('twilio');
 require('dotenv').config();
 
 // Twilio configuration
-const accountSid = process.env.TWILIO_ACCOUNT_SID || 'ACc37399e7e1bb57671221d7e2896e015e';
-const authToken = process.env.TWILIO_AUTH_TOKEN || '013d229377c4624c5692329a71fdd316';
+// NOTE: Do NOT hardcode real credentials here. Always use environment variables (.env)
+const accountSid = process.env.TWILIO_ACCOUNT_SID;
+const authToken = process.env.TWILIO_AUTH_TOKEN;
 // Twilio phone number - must be in E.164 format (e.g., +15075790227)
-// For production, use your verified Twilio phone number
-// Found via: node utils/getTwilioPhoneNumbers.js
-const twilioPhoneNumber = process.env.TWILIO_PHONE_NUMBER || '+15075790227';
+// This must match a verified / purchased number in your Twilio account
+const twilioPhoneNumber = process.env.TWILIO_PHONE_NUMBER;
 
 // Initialize Twilio client
 let client;
 try {
-  client = twilio(accountSid, authToken);
-  console.log('Twilio client initialized successfully');
+  if (!accountSid || !authToken) {
+    console.error(
+      'Twilio credentials not set. Please configure TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN in your .env file.'
+    );
+    client = null;
+  } else {
+    client = twilio(accountSid, authToken);
+    console.log('Twilio client initialized successfully');
+  }
 } catch (error) {
   console.error('Error initializing Twilio client:', error);
   client = null;

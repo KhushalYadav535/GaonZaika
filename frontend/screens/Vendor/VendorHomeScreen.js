@@ -7,10 +7,15 @@ import {
   SafeAreaView,
   ScrollView,
   Alert,
+  StatusBar,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useVendor } from '../../hooks/useVendor';
 import apiService from '../../services/apiService';
+import { theme } from '../../utils/theme';
+import { MotiView, AnimatePresence } from 'moti';
+import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
 
 const VendorHomeScreen = ({ navigation }) => {
   const { vendorId, vendorName, restaurant, loading: vendorLoading } = useVendor();
@@ -114,17 +119,27 @@ const VendorHomeScreen = ({ navigation }) => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        {/* Restaurant Info */}
-        <View style={styles.restaurantCard}>
+      <StatusBar barStyle="light-content" backgroundColor={theme.colors.background} />
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        
+        {/* Restaurant Info Header */}
+        <MotiView 
+          from={{ opacity: 0, translateY: -20 }}
+          animate={{ opacity: 1, translateY: 0 }}
+          style={styles.restaurantCard}
+        >
+          <LinearGradient
+            colors={['rgba(200,150,30,0.06)', 'transparent']}
+            style={StyleSheet.absoluteFillObject}
+          />
           <View style={styles.restaurantIcon}>
-            <MaterialIcons name="restaurant" size={40} color="#FF9800" />
+            <MaterialIcons name="restaurant-menu" size={30} color={theme.colors.primary} />
           </View>
           <View style={{ flex: 1 }}>
             <Text style={styles.restaurantName}>{restaurant?.name || 'Restaurant'}</Text>
             <View style={styles.statusRow}>
-              <View style={[styles.statusDot, { backgroundColor: isLive ? '#4CAF50' : '#f44336' }]} />
-              <Text style={[styles.statusText, { color: isLive ? '#4CAF50' : '#f44336' }]}>
+              <View style={[styles.statusDot, { backgroundColor: isLive ? theme.colors.success : theme.colors.error }]} />
+              <Text style={[styles.statusText, { color: isLive ? theme.colors.success : theme.colors.error }]}>
                 {isLive ? 'LIVE' : 'OFFLINE'}
               </Text>
             </View>
@@ -132,96 +147,104 @@ const VendorHomeScreen = ({ navigation }) => {
           <TouchableOpacity
             style={[
               styles.liveButton,
-              { backgroundColor: isLive ? '#f44336' : '#4CAF50' }
+              { backgroundColor: isLive ? 'rgba(244, 67, 54, 0.2)' : 'rgba(76, 175, 80, 0.2)' },
+              { borderColor: isLive ? theme.colors.error : theme.colors.success, borderWidth: 1 }
             ]}
             onPress={toggleLiveStatus}
             disabled={liveLoading}
           >
             <MaterialIcons 
-              name={isLive ? "stop" : "play-arrow"} 
-              size={20} 
-              color="white" 
+              name={isLive ? "stop" : "power-settings-new"} 
+              size={18} 
+              color={isLive ? theme.colors.error : theme.colors.success} 
             />
-            <Text style={styles.liveButtonText}>
+            <Text style={[styles.liveButtonText, { color: isLive ? theme.colors.error : theme.colors.success }]}>
               {liveLoading ? '...' : (isLive ? 'Go Offline' : 'Go Live')}
             </Text>
           </TouchableOpacity>
-        </View>
+        </MotiView>
 
-        {/* Live Status Card */}
-        <View style={styles.liveStatusCard}>
-          <View style={styles.liveStatusHeader}>
-            <MaterialIcons 
-              name={isLive ? "wifi" : "wifi-off"} 
-              size={24} 
-              color={isLive ? '#4CAF50' : '#f44336'} 
-            />
-            <Text style={styles.liveStatusTitle}>
-              {isLive ? 'Restaurant is LIVE' : 'Restaurant is OFFLINE'}
-            </Text>
-          </View>
-          <Text style={styles.liveStatusDescription}>
-            {isLive 
-              ? 'Customers can see your restaurant and place orders. You will receive order notifications.'
-              : 'Restaurant is closed. Customers cannot place orders. Go live to start accepting orders.'
-            }
-          </Text>
-          {isLive && (
-            <View style={styles.liveIndicator}>
-              <View style={styles.livePulse} />
-              <Text style={styles.liveIndicatorText}>LIVE</Text>
-            </View>
+        {/* Live Status Description */}
+        <AnimatePresence>
+          {!isLive && (
+            <MotiView 
+              from={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 100 }}
+              exit={{ opacity: 0, height: 0 }}
+              style={[styles.liveStatusCard, { backgroundColor: 'rgba(244, 67, 54, 0.05)' }]}
+            >
+              <View style={styles.liveStatusHeader}>
+                <MaterialIcons name="wifi-off" size={20} color={theme.colors.error} />
+                <Text style={[styles.liveStatusTitle, { color: theme.colors.error }]}>Currently Offline</Text>
+              </View>
+              <Text style={styles.liveStatusDescription}>
+                Customers cannot place orders. Go live to start accepting deliveries.
+              </Text>
+            </MotiView>
           )}
-        </View>
+        </AnimatePresence>
 
-        {/* Today's Summary */}
-        <View style={styles.summaryCard}>
-          <Text style={styles.summaryTitle}>Today's Summary</Text>
-          <View style={styles.summaryRow}>
-            <View style={styles.summaryItem}>
-              <MaterialIcons name="receipt" size={28} color="#FF9800" />
-              <Text style={styles.summaryNumber}>{dashboardData.totalOrders}</Text>
-              <Text style={styles.summaryLabel}>Total Orders</Text>
+        <MotiView from={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 100 }}>
+          <LinearGradient
+            colors={[theme.colors.surface, theme.colors.surfaceVariant]}
+            style={styles.earningsCard}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <View style={{ backgroundColor: 'rgba(212, 175, 55, 0.1)', padding: 12, borderRadius: 16 }}>
+                <MaterialIcons name="account-balance-wallet" size={28} color={theme.colors.primary} />
+              </View>
+              <View style={{ marginLeft: 16 }}>
+                <Text style={styles.earningsLabel}>Today's Earnings</Text>
+                <Text style={styles.earningsValue}>₹{dashboardData.todayRevenue}</Text>
+              </View>
             </View>
-            <View style={styles.summaryItem}>
+            <MaterialIcons name="chevron-right" size={24} color={theme.colors.textSecondary} />
+          </LinearGradient>
+        </MotiView>
+
+        {/* Today's Analytics Grid */}
+        <Text style={styles.sectionTitle}>Analytics</Text>
+        <View style={styles.summaryRow}>
+          <MotiView from={{ opacity: 0, translateY: 20 }} animate={{ opacity: 1, translateY: 0 }} transition={{ delay: 200 }} style={styles.summaryItemWrapper}>
+            <LinearGradient colors={[theme.colors.surface, theme.colors.surfaceVariant]} style={styles.summaryItem}>
+              <MaterialIcons name="receipt" size={28} color={theme.colors.primary} />
+              <Text style={styles.summaryNumber}>{dashboardData.totalOrders}</Text>
+              <Text style={styles.summaryLabel}>Orders</Text>
+            </LinearGradient>
+          </MotiView>
+          <MotiView from={{ opacity: 0, translateY: 20 }} animate={{ opacity: 1, translateY: 0 }} transition={{ delay: 300 }} style={styles.summaryItemWrapper}>
+            <LinearGradient colors={[theme.colors.surface, theme.colors.surfaceVariant]} style={styles.summaryItem}>
               <MaterialIcons name="pending-actions" size={28} color="#2196F3" />
               <Text style={styles.summaryNumber}>{dashboardData.pendingOrders}</Text>
               <Text style={styles.summaryLabel}>Pending</Text>
-            </View>
-            <View style={styles.summaryItem}>
-              <MaterialIcons name="check-circle" size={28} color="#4CAF50" />
+            </LinearGradient>
+          </MotiView>
+          <MotiView from={{ opacity: 0, translateY: 20 }} animate={{ opacity: 1, translateY: 0 }} transition={{ delay: 400 }} style={styles.summaryItemWrapper}>
+            <LinearGradient colors={[theme.colors.surface, theme.colors.surfaceVariant]} style={styles.summaryItem}>
+              <MaterialIcons name="check-circle" size={28} color={theme.colors.success} />
               <Text style={styles.summaryNumber}>{dashboardData.completedOrders}</Text>
-              <Text style={styles.summaryLabel}>Completed</Text>
-            </View>
-          </View>
-        </View>
-
-        {/* Earnings */}
-        <View style={styles.earningsCard}>
-          <MaterialIcons name="account-balance-wallet" size={32} color="#388E3C" />
-          <View style={{ marginLeft: 16 }}>
-            <Text style={styles.earningsLabel}>Earnings Today</Text>
-            <Text style={styles.earningsValue}>₹{dashboardData.todayRevenue}</Text>
-          </View>
+              <Text style={styles.summaryLabel}>Done</Text>
+            </LinearGradient>
+          </MotiView>
         </View>
 
         {/* Quick Actions */}
-        <View style={styles.actionsRow}>
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={() => navigation.navigate('Orders')}
-          >
-            <MaterialIcons name="list-alt" size={24} color="#fff" />
-            <Text style={styles.actionText}>View Orders</Text>
+        <Text style={styles.sectionTitle}>Quick Actions</Text>
+        <MotiView from={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 500 }} style={styles.actionsRow}>
+          <TouchableOpacity onPress={() => navigation.navigate('Orders')} style={{ flex: 1, marginRight: 8 }} activeOpacity={0.8}>
+            <LinearGradient colors={[theme.colors.goldLight, theme.colors.surface]} style={styles.actionButton}>
+              <MaterialIcons name="list-alt" size={24} color={theme.colors.primary} />
+              <Text style={styles.actionText}>View Orders</Text>
+            </LinearGradient>
           </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.actionButton, { backgroundColor: '#FF9800' }]}
-            onPress={() => navigation.navigate('Menu')}
-          >
-            <MaterialIcons name="add" size={24} color="#fff" />
-            <Text style={styles.actionText}>Add Menu Item</Text>
+          <TouchableOpacity onPress={() => navigation.navigate('Menu')} style={{ flex: 1, marginLeft: 8 }} activeOpacity={0.8}>
+            <LinearGradient colors={[theme.colors.primary, '#A07818']} style={styles.actionButton}>
+              <MaterialIcons name="add" size={24} color={theme.colors.background} />
+              <Text style={[styles.actionText, { color: theme.colors.background }]}>Add Item</Text>
+            </LinearGradient>
           </TouchableOpacity>
-        </View>
+        </MotiView>
+        
       </ScrollView>
     </SafeAreaView>
   );
@@ -230,7 +253,7 @@ const VendorHomeScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: theme.colors.background,
   },
   loadingContainer: {
     flex: 1,
@@ -239,187 +262,173 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     fontSize: 16,
-    color: '#666',
+    color: theme.colors.textSecondary,
   },
   scrollContent: {
     padding: 20,
+    paddingTop: 60,
     paddingBottom: 40,
   },
   restaurantCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'white',
+    backgroundColor: theme.colors.surface,
     borderRadius: 16,
     padding: 20,
-    marginBottom: 20,
-    elevation: 2,
+    marginBottom: 24,
+    borderWidth: 1,
+    borderColor: theme.colors.cardBorder,
+    elevation: 3,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
-    shadowRadius: 2,
+    shadowRadius: 8,
+    overflow: 'hidden'
   },
   restaurantIcon: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: '#FFF3E0',
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: 'rgba(212, 175, 55, 0.1)',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 16,
   },
   restaurantName: {
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 6,
+    color: theme.colors.text,
+    marginBottom: 4,
   },
   statusRow: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   statusDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
     marginRight: 6,
   },
   statusText: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: 'bold',
+    letterSpacing: 1,
   },
   liveButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
+    paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 20,
     marginLeft: 12,
   },
   liveButtonText: {
-    color: 'white',
     fontWeight: 'bold',
     fontSize: 12,
     marginLeft: 4,
   },
   liveStatusCard: {
-    backgroundColor: 'white',
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 20,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.08,
-    shadowRadius: 2,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(244, 67, 54, 0.2)',
   },
   liveStatusHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 8,
   },
   liveStatusTitle: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: 'bold',
-    color: '#333',
     marginLeft: 8,
   },
   liveStatusDescription: {
-    fontSize: 14,
-    color: '#666',
-    lineHeight: 20,
-    marginBottom: 12,
-  },
-  liveIndicator: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-  },
-  livePulse: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#4CAF50',
-    marginRight: 6,
-  },
-  liveIndicatorText: {
-    fontSize: 12,
-    fontWeight: 'bold',
-    color: '#4CAF50',
-  },
-  summaryCard: {
-    backgroundColor: 'white',
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 20,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.08,
-    shadowRadius: 2,
-  },
-  summaryTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 16,
-  },
-  summaryRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  summaryItem: {
-    alignItems: 'center',
-    flex: 1,
-  },
-  summaryNumber: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#333',
-    marginTop: 6,
-  },
-  summaryLabel: {
     fontSize: 13,
-    color: '#888',
-    marginTop: 2,
+    color: theme.colors.textSecondary,
+    lineHeight: 18,
   },
   earningsCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'white',
+    justifyContent: 'space-between',
     borderRadius: 16,
     padding: 20,
-    marginBottom: 24,
-    elevation: 2,
+    marginBottom: 32,
+    borderWidth: 1,
+    borderColor: theme.colors.cardBorder,
+    elevation: 3,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.08,
-    shadowRadius: 2,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
   },
   earningsLabel: {
-    fontSize: 15,
-    color: '#666',
+    fontSize: 14,
+    color: theme.colors.textSecondary,
+    marginBottom: 4,
   },
   earningsValue: {
-    fontSize: 22,
+    fontSize: 28,
+    fontWeight: '900',
+    color: theme.colors.text,
+  },
+  sectionTitle: {
+    fontSize: 18,
     fontWeight: 'bold',
-    color: '#388E3C',
+    color: theme.colors.text,
+    marginBottom: 16,
+    letterSpacing: 0.5,
+  },
+  summaryRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 32,
+  },
+  summaryItemWrapper: {
+    flex: 1,
+    marginHorizontal: 4,
+  },
+  summaryItem: {
+    alignItems: 'center',
+    paddingVertical: 20,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: theme.colors.cardBorder,
+  },
+  summaryNumber: {
+    fontSize: 24,
+    fontWeight: '900',
+    color: theme.colors.text,
+    marginTop: 12,
+    marginBottom: 4,
+  },
+  summaryLabel: {
+    fontSize: 12,
+    color: theme.colors.textSecondary,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
   },
   actionsRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
   },
   actionButton: {
-    flex: 1,
-    backgroundColor: '#2196F3',
-    borderRadius: 12,
+    flexDirection: 'row',
+    borderRadius: 16,
     padding: 16,
     alignItems: 'center',
-    marginHorizontal: 4,
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: theme.colors.goldBorder,
   },
   actionText: {
-    color: 'white',
+    color: theme.colors.primary,
     fontWeight: 'bold',
-    marginTop: 4,
+    fontSize: 15,
+    marginLeft: 8,
   },
 });
 

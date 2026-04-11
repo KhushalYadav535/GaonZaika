@@ -29,15 +29,8 @@ const DeliveryInfoScreen = ({ route, navigation }) => {
   const [deliveryInfo, setDeliveryInfo] = useState({
     name: '',
     phone: '',
-    address: '',
     houseNumber: '',
-    apartment: '',
-    floor: '',
-    landmark: '',
-    area: '',
-    city: '',
-    pincode: '',
-    state: '',
+    areaOrVillage: '',
     additionalInstructions: '',
     addressType: 'Home'
   });
@@ -126,20 +119,12 @@ const DeliveryInfoScreen = ({ route, navigation }) => {
       Alert.alert('Invalid Phone', 'Please enter a valid phone number.');
       return false;
     }
-    if (!deliveryInfo.address.trim()) {
-      Alert.alert('Missing Information', 'Please enter your address.');
+    if (!deliveryInfo.houseNumber.trim()) {
+      Alert.alert('Missing Information', 'Please enter your house number/building name.');
       return false;
     }
-    if (!deliveryInfo.area.trim()) {
-      Alert.alert('Missing Information', 'Please enter your area/locality.');
-      return false;
-    }
-    if (!deliveryInfo.city.trim()) {
-      Alert.alert('Missing Information', 'Please enter your city.');
-      return false;
-    }
-    if (!deliveryInfo.pincode.trim()) {
-      Alert.alert('Missing Information', 'Please enter your pincode.');
+    if (!deliveryInfo.areaOrVillage.trim()) {
+      Alert.alert('Missing Information', 'Please enter your area or village name.');
       return false;
     }
     return true;
@@ -173,7 +158,7 @@ const DeliveryInfoScreen = ({ route, navigation }) => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
+      <StatusBar barStyle="light-content" backgroundColor="#1565C0" translucent={false} />
       <Animated.View 
         style={[
           styles.header,
@@ -183,11 +168,18 @@ const DeliveryInfoScreen = ({ route, navigation }) => {
           }
         ]}
       >
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <MaterialIcons name="arrow-back" size={24} color="#333" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Delivery Information</Text>
-        <View style={styles.placeholder} />
+        <LinearGradient
+          colors={['#1565C0', '#2196F3', '#1976D2']}
+          style={styles.headerGradient}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+        >
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+            <MaterialIcons name="arrow-back" size={24} color="white" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Delivery Address</Text>
+          <View style={styles.placeholder} />
+        </LinearGradient>
       </Animated.View>
 
                    <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
@@ -310,6 +302,7 @@ const DeliveryInfoScreen = ({ route, navigation }) => {
            </View>
          </Animated.View>
 
+        {/* Address Section - Simplified for Village Users */}
         <Animated.View 
           style={[
             styles.section,
@@ -321,175 +314,55 @@ const DeliveryInfoScreen = ({ route, navigation }) => {
         >
           <View style={styles.sectionHeader}>
             <MaterialIcons name="home" size={24} color="#2196F3" />
-            <Text style={styles.sectionTitle}>Address Details</Text>
+            <Text style={styles.sectionTitle}>Delivery Address</Text>
           </View>
           
-          <View style={styles.locationCard}>
-            <TouchableOpacity 
-              style={styles.locationButton}
-              onPress={getCurrentLocation}
-              disabled={gettingLocation}
-              activeOpacity={0.9}
-            >
-              <LinearGradient
-                colors={['#E3F2FD', '#BBDEFB']}
-                style={styles.locationButtonGradient}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-              >
-                <MaterialIcons name="my-location" size={20} color="#2196F3" />
-                <Text style={styles.locationButtonText}>
-                  {gettingLocation ? 'Getting location...' : '📍 Use Current Location'}
-                </Text>
-                {gettingLocation && <ActivityIndicator size="small" color="#2196F3" />}
-              </LinearGradient>
-            </TouchableOpacity>
+          {/* House Number/Name */}
+          <View style={styles.inputGroup}>
+            <View style={styles.labelContainer}>
+              <MaterialIcons name="house" size={18} color="#2196F3" />
+              <Text style={styles.label}>House Number/Building Name *</Text>
+            </View>
+            <TextInput
+              style={styles.input}
+              placeholder="e.g., House No. 45, Ram Niwas Bungalow"
+              value={deliveryInfo.houseNumber}
+              onChangeText={(text) => updateDeliveryInfo('houseNumber', text)}
+            />
           </View>
 
-          <View style={styles.addressSection}>
-            <View style={styles.sectionSubtitle}>
-              <MaterialIcons name="location-city" size={18} color="#666" />
-              <Text style={styles.subtitleText}>Complete Address</Text>
+          {/* Area/Village */}
+          <View style={styles.inputGroup}>
+            <View style={styles.labelContainer}>
+              <MaterialIcons name="location-on" size={18} color="#2196F3" />
+              <Text style={styles.label}>Area/Village Name *</Text>
             </View>
-            
-            <View style={styles.inputGroup}>
-              <View style={styles.labelContainer}>
-                <MaterialIcons name="home" size={16} color="#2196F3" />
-                <Text style={styles.label}>Complete Address *</Text>
-              </View>
-              <TextInput
-                style={[styles.input, styles.textArea]}
-                placeholder="Enter your complete address"
-                value={deliveryInfo.address}
-                onChangeText={(text) => updateDeliveryInfo('address', text)}
-                multiline
-                numberOfLines={3}
-              />
-            </View>
+            <TextInput
+              style={styles.input}
+              placeholder="e.g., Goan Village, Main Road Area"
+              value={deliveryInfo.areaOrVillage}
+              onChangeText={(text) => updateDeliveryInfo('areaOrVillage', text)}
+            />
           </View>
 
-                                           <View style={styles.addressSection}>
-              <View style={styles.sectionSubtitle}>
-                <MaterialIcons name="home" size={20} color="#666" />
-                <Text style={styles.subtitleText}>House Details</Text>
-              </View>
-              
-              <View style={styles.buildingCard}>
-                <View style={styles.inputGroup}>
-                  <View style={styles.labelContainer}>
-                    <MaterialIcons name="house" size={18} color="#2196F3" />
-                    <Text style={styles.label}>House Number/Name</Text>
-                  </View>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="e.g., House No. 45, Ram Niwas"
-                    value={deliveryInfo.houseNumber}
-                    onChangeText={(text) => updateDeliveryInfo('houseNumber', text)}
-                  />
-                </View>
-
-                <View style={styles.inputGroup}>
-                  <View style={styles.labelContainer}>
-                    <MaterialIcons name="place" size={18} color="#2196F3" />
-                    <Text style={styles.label}>Nearby Landmark</Text>
-                  </View>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="e.g., Near Temple, Behind School"
-                    value={deliveryInfo.landmark}
-                    onChangeText={(text) => updateDeliveryInfo('landmark', text)}
-                  />
-                </View>
-              </View>
+          {/* Additional Instructions */}
+          <View style={styles.inputGroup}>
+            <View style={styles.labelContainer}>
+              <MaterialIcons name="note" size={18} color="#2196F3" />
+              <Text style={styles.label}>Directions/Landmarks (Optional)</Text>
             </View>
-
-                                           <View style={styles.addressSection}>
-              <View style={styles.sectionSubtitle}>
-                <MaterialIcons name="location-on" size={20} color="#666" />
-                <Text style={styles.subtitleText}>Village Details</Text>
-              </View>
-              
-              <View style={styles.locationDetailsCard}>
-                <View style={styles.inputGroup}>
-                  <View style={styles.labelContainer}>
-                    <MaterialIcons name="map" size={18} color="#2196F3" />
-                    <Text style={styles.label}>Village Name *</Text>
-                  </View>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Enter your village name"
-                    value={deliveryInfo.area}
-                    onChangeText={(text) => updateDeliveryInfo('area', text)}
-                  />
-                </View>
-
-                <View style={styles.locationRow}>
-                  <View style={[styles.inputGroup, styles.halfWidth]}>
-                    <View style={styles.labelContainer}>
-                      <MaterialIcons name="location-city" size={18} color="#2196F3" />
-                      <Text style={styles.label}>Tehsil/Block *</Text>
-                    </View>
-                    <TextInput
-                      style={styles.input}
-                      placeholder="Enter tehsil or block"
-                      value={deliveryInfo.city}
-                      onChangeText={(text) => updateDeliveryInfo('city', text)}
-                    />
-                  </View>
-                  <View style={[styles.inputGroup, styles.halfWidth]}>
-                    <View style={styles.labelContainer}>
-                      <MaterialIcons name="markunread-mailbox" size={18} color="#2196F3" />
-                      <Text style={styles.label}>Pincode *</Text>
-                    </View>
-                    <TextInput
-                      style={styles.input}
-                      placeholder="Enter pincode"
-                      value={deliveryInfo.pincode}
-                      onChangeText={(text) => updateDeliveryInfo('pincode', text)}
-                      keyboardType="numeric"
-                      maxLength={6}
-                    />
-                  </View>
-                </View>
-
-                <View style={styles.inputGroup}>
-                  <View style={styles.labelContainer}>
-                    <MaterialIcons name="public" size={18} color="#2196F3" />
-                    <Text style={styles.label}>District</Text>
-                  </View>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Enter your district"
-                    value={deliveryInfo.state}
-                    onChangeText={(text) => updateDeliveryInfo('state', text)}
-                  />
-                </View>
-              </View>
-            </View>
-
-          <View style={styles.addressSection}>
-            <View style={styles.sectionSubtitle}>
-              <MaterialIcons name="note" size={18} color="#666" />
-              <Text style={styles.subtitleText}>Additional Information</Text>
-            </View>
-            
-            <View style={styles.inputGroup}>
-              <View style={styles.labelContainer}>
-                <MaterialIcons name="edit" size={16} color="#2196F3" />
-                <Text style={styles.label}>Additional Instructions</Text>
-              </View>
-              <TextInput
-                style={[styles.input, styles.textArea]}
-                placeholder="Any special instructions for delivery (optional)"
-                value={deliveryInfo.additionalInstructions}
-                onChangeText={(text) => updateDeliveryInfo('additionalInstructions', text)}
-                multiline
-                numberOfLines={3}
-              />
-            </View>
+            <TextInput
+              style={[styles.input, styles.textArea]}
+              placeholder="e.g., Near temple, Behind school, Next to red gate"
+              value={deliveryInfo.additionalInstructions}
+              onChangeText={(text) => updateDeliveryInfo('additionalInstructions', text)}
+              multiline
+              numberOfLines={2}
+            />
           </View>
         </Animated.View>
 
+        {/* Quick Tips Card */}
         <Animated.View 
           style={[
             styles.tipsCard,
@@ -506,32 +379,24 @@ const DeliveryInfoScreen = ({ route, navigation }) => {
              end={{ x: 1, y: 1 }}
            >
              <View style={styles.tipsHeader}>
-               <MaterialIcons name="lightbulb" size={24} color="#FF9800" />
-               <Text style={styles.tipsTitle}>Tips for accurate delivery</Text>
+               <MaterialIcons name="lightbulb" size={20} color="#FF9800" />
+               <Text style={styles.tipsTitle}>Delivery Tips</Text>
              </View>
-                           <View style={styles.tipsList}>
+             <View style={styles.tipsList}>
                 <View style={styles.tipItem}>
-                  <MaterialIcons name="check-circle" size={16} color="#4CAF50" />
-                  <Text style={styles.tipText}>Mention nearby landmarks like temple, school, or shop</Text>
+                  <MaterialIcons name="check-circle" size={14} color="#4CAF50" />
+                  <Text style={styles.tipText}>Mention nearby landmarks for easy location</Text>
                 </View>
                 <View style={styles.tipItem}>
-                  <MaterialIcons name="check-circle" size={16} color="#4CAF50" />
-                  <Text style={styles.tipText}>Include house name or number for easy identification</Text>
-                </View>
-                <View style={styles.tipItem}>
-                  <MaterialIcons name="check-circle" size={16} color="#4CAF50" />
-                  <Text style={styles.tipText}>Provide directions from main road or village center</Text>
-                </View>
-                <View style={styles.tipItem}>
-                  <MaterialIcons name="check-circle" size={16} color="#4CAF50" />
-                  <Text style={styles.tipText}>Ensure phone number is correct for contact</Text>
+                  <MaterialIcons name="check-circle" size={14} color="#4CAF50" />
+                  <Text style={styles.tipText}>Keep your phone ready for delivery person to contact</Text>
                 </View>
               </View>
            </LinearGradient>
          </Animated.View>
       </ScrollView>
 
-      <Animated.View 
+      <Animated.View
         style={[
           styles.bottomSection,
           {
@@ -573,46 +438,53 @@ const styles = StyleSheet.create({
     backgroundColor: '#f8fafc'
   },
   header: {
+    elevation: 16,
+    shadowColor: '#1565C0',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.35,
+    shadowRadius: 12,
+  },
+  headerGradient: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: 20,
-    backgroundColor: 'white',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4
+    paddingHorizontal: 18,
+    paddingVertical: 16,
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
   },
   backButton: {
-    padding: 4
+    padding: 8,
+    borderRadius: 8
   },
   headerTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#333'
+    fontSize: 24,
+    fontWeight: '900',
+    color: 'white',
+    textAlign: 'center',
+    flex: 1,
+    letterSpacing: 0.5,
   },
   placeholder: {
-    width: 32
+    width: 40
   },
      typeContainer: {
      backgroundColor: 'white',
-     borderRadius: 12,
-     padding: 16,
-     marginBottom: 16,
-     elevation: 2,
+     borderRadius: 18,
+     padding: 20,
+     marginBottom: 20,
+     elevation: 4,
      shadowColor: '#000',
-     shadowOffset: { width: 0, height: 1 },
-     shadowOpacity: 0.08,
-     shadowRadius: 2
+     shadowOffset: { width: 0, height: 2 },
+     shadowOpacity: 0.1,
+     shadowRadius: 4,
    },
    typeLabel: {
-     fontSize: 16,
-     fontWeight: 'bold',
-     color: '#333',
-     marginBottom: 12
+     fontSize: 18,
+     fontWeight: '800',
+     color: '#1565C0',
+     marginBottom: 14,
+     letterSpacing: 0.3,
    },
    typeRow: {
      flexDirection: 'row',
@@ -621,21 +493,21 @@ const styles = StyleSheet.create({
    },
      typeChip: {
      flex: 1,
-     borderRadius: 12,
+     borderRadius: 16,
      overflow: 'hidden',
-     elevation: 2,
+     elevation: 3,
      shadowColor: '#000',
-     shadowOffset: { width: 0, height: 1 },
-     shadowOpacity: 0.1,
-     shadowRadius: 2
+     shadowOffset: { width: 0, height: 2 },
+     shadowOpacity: 0.12,
+     shadowRadius: 3,
    },
    typeChipGradient: {
      flexDirection: 'row',
      alignItems: 'center',
      justifyContent: 'center',
      paddingHorizontal: 16,
-     paddingVertical: 12,
-     borderRadius: 12,
+     paddingVertical: 14,
+     borderRadius: 16,
    },
      typeChipSelected: {
      elevation: 4,
@@ -643,10 +515,10 @@ const styles = StyleSheet.create({
      shadowRadius: 4
    },
      typeChipText: {
-     marginLeft: 8,
+     marginLeft: 10,
      color: '#2196F3',
-     fontWeight: '600',
-     fontSize: 14
+     fontWeight: '700',
+     fontSize: 15,
    },
   typeChipTextSelected: {
     color: 'white'
@@ -656,33 +528,36 @@ const styles = StyleSheet.create({
     padding: 20
   },
        infoCard: {
-    borderRadius: 20,
+    borderRadius: 24,
     marginBottom: 24,
-    elevation: 6,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.15,
-    shadowRadius: 6,
+    elevation: 8,
+    shadowColor: '#1565C0',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.2,
+    shadowRadius: 10,
     overflow: 'hidden'
   },
      infoCardGradient: {
-    padding: 24,
-    borderRadius: 20,
+    padding: 28,
+    borderRadius: 24,
   },
      cardIconContainer: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: 'rgba(33, 150, 243, 0.15)',
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: 'rgba(21, 101, 192, 0.2)',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 16
+    marginBottom: 18,
+    borderWidth: 2,
+    borderColor: 'rgba(21, 101, 192, 0.3)',
   },
      cardTitle: {
-     fontSize: 18,
-     fontWeight: 'bold',
-     color: '#1976D2',
-     marginBottom: 8
+     fontSize: 20,
+     fontWeight: '800',
+     color: '#1565C0',
+     marginBottom: 10,
+     letterSpacing: 0.3,
    },
   cardSubtitle: {
     fontSize: 14,
@@ -690,28 +565,28 @@ const styles = StyleSheet.create({
   },
   section: {
     backgroundColor: 'white',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    elevation: 3,
+    borderRadius: 18,
+    padding: 20,
+    marginBottom: 20,
+    elevation: 4,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 3
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.12,
+    shadowRadius: 6,
   },
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 20,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E3F2FD'
+    marginBottom: 22,
+    paddingBottom: 14,
+    borderBottomWidth: 2,
+    borderBottomColor: '#E3F2FD',
   },
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
-    marginLeft: 8
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#1565C0',
+    marginLeft: 10,
   },
   locationCard: {
     backgroundColor: '#F8FBFF',
@@ -753,10 +628,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4
   },
   subtitleText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#666',
-    marginLeft: 8
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#555',
+    marginLeft: 10,
   },
   labelContainer: {
     flexDirection: 'row',
@@ -764,23 +639,24 @@ const styles = StyleSheet.create({
     marginBottom: 8
   },
   label: {
-    fontSize: 14,
-    fontWeight: 'bold',
+    fontSize: 15,
+    fontWeight: '700',
     color: '#333',
-    marginLeft: 6
+    marginLeft: 8,
   },
   input: {
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: '#e0e0e0',
-    borderRadius: 10,
-    padding: 14,
+    borderRadius: 14,
+    padding: 16,
     fontSize: 16,
-    backgroundColor: 'white',
+    backgroundColor: '#F8FAFC',
     elevation: 2,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.08,
-    shadowRadius: 2
+    shadowRadius: 2,
+    fontWeight: '500',
   },
   textArea: {
     height: 80,
@@ -788,15 +664,15 @@ const styles = StyleSheet.create({
   },
      buildingCard: {
      backgroundColor: '#F8FBFF',
-     borderRadius: 12,
-     padding: 16,
-     borderWidth: 1,
+     borderRadius: 16,
+     padding: 18,
+     borderWidth: 1.5,
      borderColor: '#E3F2FD',
-     elevation: 2,
+     elevation: 3,
      shadowColor: '#000',
-     shadowOffset: { width: 0, height: 1 },
-     shadowOpacity: 0.08,
-     shadowRadius: 2
+     shadowOffset: { width: 0, height: 2 },
+     shadowOpacity: 0.1,
+     shadowRadius: 4,
    },
    buildingRow: {
      flexDirection: 'row',
@@ -805,15 +681,15 @@ const styles = StyleSheet.create({
    },
    locationDetailsCard: {
      backgroundColor: '#F8FBFF',
-     borderRadius: 12,
-     padding: 16,
-     borderWidth: 1,
+     borderRadius: 16,
+     padding: 18,
+     borderWidth: 1.5,
      borderColor: '#E3F2FD',
-     elevation: 2,
+     elevation: 3,
      shadowColor: '#000',
-     shadowOffset: { width: 0, height: 1 },
-     shadowOpacity: 0.08,
-     shadowRadius: 2
+     shadowOffset: { width: 0, height: 2 },
+     shadowOpacity: 0.1,
+     shadowRadius: 4,
    },
    locationRow: {
      flexDirection: 'row',
@@ -828,18 +704,18 @@ const styles = StyleSheet.create({
     width: '48%'
   },
      tipsCard: {
-     borderRadius: 16,
-     marginBottom: 20,
-     elevation: 4,
-     shadowColor: '#000',
-     shadowOffset: { width: 0, height: 2 },
-     shadowOpacity: 0.12,
-     shadowRadius: 4,
-     overflow: 'hidden'
+     borderRadius: 20,
+     marginBottom: 24,
+     elevation: 6,
+     shadowColor: '#FF9800',
+     shadowOffset: { width: 0, height: 4 },
+     shadowOpacity: 0.15,
+     shadowRadius: 8,
+     overflow: 'hidden',
    },
    tipsCardGradient: {
-     padding: 20,
-     borderRadius: 16,
+     padding: 24,
+     borderRadius: 20,
    },
    tipsHeader: {
      flexDirection: 'row',
@@ -855,10 +731,10 @@ const styles = StyleSheet.create({
      gap: 12
    },
      tipsTitle: {
-     fontSize: 18,
-     fontWeight: 'bold',
+     fontSize: 20,
+     fontWeight: '800',
      color: '#E65100',
-     marginLeft: 8
+     marginLeft: 10,
    },
      tipText: {
      fontSize: 14,
@@ -872,19 +748,19 @@ const styles = StyleSheet.create({
     borderTopColor: '#e0e0e0'
   },
   continueButton: {
-    borderRadius: 12,
+    borderRadius: 16,
     overflow: 'hidden',
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.12,
-    shadowRadius: 3
+    elevation: 6,
+    shadowColor: '#1565C0',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
   },
   continueGradient: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 16,
+    padding: 18,
   },
   disabledButton: {
     backgroundColor: '#ccc'

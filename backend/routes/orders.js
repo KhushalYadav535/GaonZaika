@@ -138,16 +138,17 @@ router.post('/', validateOrder, async (req, res) => {
     try {
       // Find vendor by restaurant
       const vendor = await Restaurant.findById(restaurantId).populate('vendorId');
-      
+
       if (vendor && vendor.vendorId && vendor.vendorId.pushToken) {
         await pushNotificationService.sendNewOrderToVendor(
           vendor.vendorId.pushToken,
           order.orderId,
           customerInfo.name,
-          totalAmount
+          totalAmount,
+          items.length
         );
-        
-        console.log(`Push notification sent to vendor for new order ${order.orderId}`);
+
+        console.log(`🔔 Push notification sent to vendor for new order ${order.orderId}`);
       }
     } catch (notificationError) {
       console.error('Error sending push notification to vendor:', notificationError);
@@ -238,19 +239,19 @@ router.get('/:id', async (req, res) => {
     const order = await Order.findById(req.params.id)
       .populate('restaurantId', 'name cuisine address contact')
       .populate('deliveryPersonId', 'name phone vehicleDetails');
-    
+
     if (!order) {
       return res.status(404).json({
         success: false,
         message: 'Order not found'
       });
     }
-    
+
     res.json({
       success: true,
       data: order
     });
-    
+
   } catch (error) {
     console.error('Error fetching order:', error);
     res.status(500).json({
@@ -277,60 +278,147 @@ router.patch('/:id/status', [
 
     const { status } = req.body;
     const order = await Order.findById(req.params.id);
-    
+
     if (!order) {
       return res.status(404).json({
         success: false,
         message: 'Order not found'
       });
     }
-    
+
     // Store old status for comparison
     const oldStatus = order.status;
-    
+
     // Update order status
     await order.updateStatus(status);
-    
+
+    // Emit real-time status update via Socket.io
+    const io = req.app.get('io');
+    if (io) {
+      io.to(`order_${order.orderId}`).emit('orderStatusUpdated', {
+        orderId: order.orderId,
+        status: order.status,
+        updatedAt: new Date()
+      });
+      console.log(`📡 Socket real-time event sent for order_${order.orderId}`);
+    }
+
     // If status is "Out for Delivery", assign delivery person
     if (status === 'Out for Delivery' && !order.deliveryPersonId) {
       const availableDeliveryPerson = await DeliveryPerson.findOne({
         isActive: true,
         isAvailable: true
       });
-      
+
       if (availableDeliveryPerson) {
         order.deliveryPersonId = availableDeliveryPerson._id;
         await order.save();
       }
     }
-    
-    // Send push notification to customer if status changed and customer has push token
+
+    // Send push notifications based on status change
     if (oldStatus !== status && order.customerInfo && order.customerInfo.email) {
       try {
-        // Find customer by email to get push token
+        const restaurant = await Restaurant.findById(order.restaurantId);
+        const restaurantName = restaurant ? restaurant.name : 'Restaurant';
         const customer = await Customer.findOne({ email: order.customerInfo.email });
-        
+
         if (customer && customer.pushToken) {
-          // Get restaurant name for notification
-          const restaurant = await Restaurant.findById(order.restaurantId);
-          const restaurantName = restaurant ? restaurant.name : 'Restaurant';
-          
-          // Send order status update notification
-          await pushNotificationService.sendOrderStatusUpdate(
-            customer.pushToken,
-            order.orderId,
-            status,
-            restaurantName
-          );
-          
-          console.log(`Push notification sent for order ${order.orderId} status change to ${status}`);
+          // Send appropriate notification based on status
+          switch (status) {
+            case 'Accepted':
+              const estimatedTime = order.estimatedDeliveryTime || '30-45';
+              await pushNotificationService.sendOrderAcceptedToCustomer(
+                customer.pushToken,
+                order.orderId,
+                restaurantName,
+                estimatedTime
+              );
+              console.log(`✅ Order Accepted notification sent for ${order.orderId}`);
+              break;
+
+            case 'Preparing':
+              await pushNotificationService.sendOrderPreparingNotification(
+                customer.pushToken,
+                order.orderId,
+                restaurantName
+              );
+              console.log(`👨‍🍳 Order Preparing notification sent for ${order.orderId}`);
+              break;
+
+            case 'Ready for Delivery':
+              // Notify delivery boys that order is ready
+              const onlineDeliveryBoys = await DeliveryPerson.find({
+                isOnline: true,
+                isAvailable: true
+              });
+              const deliveryTokens = onlineDeliveryBoys.map(d => d.pushToken).filter(Boolean);
+
+              if (deliveryTokens.length > 0) {
+                const distance = order.deliveryDistance || 'N/A';
+                await pushNotificationService.sendOrderReadyForDeliveryBoys(
+                  deliveryTokens,
+                  order.orderId,
+                  restaurantName,
+                  order.customerInfo.name,
+                  distance,
+                  order.totalAmount
+                );
+                console.log(`🚗 Order Ready notification sent to ${deliveryTokens.length} delivery boys for ${order.orderId}`);
+              }
+
+              // Also notify customer that order is ready
+              await pushNotificationService.sendOrderStatusUpdate(
+                customer.pushToken,
+                order.orderId,
+                'Your order is ready for delivery',
+                restaurantName
+              );
+              break;
+
+            case 'Out for Delivery':
+              // Notify customer with delivery boy info
+              if (order.deliveryPersonId) {
+                const deliveryPerson = await DeliveryPerson.findById(order.deliveryPersonId);
+                if (deliveryPerson) {
+                  await pushNotificationService.sendOutForDeliveryNotification(
+                    customer.pushToken,
+                    order.orderId,
+                    deliveryPerson.name,
+                    deliveryPerson.phone,
+                    '20'
+                  );
+                  console.log(`📍 Out for Delivery notification sent for ${order.orderId}`);
+                }
+              }
+              break;
+
+            case 'Delivered':
+              await pushNotificationService.sendOrderDeliveredNotification(
+                customer.pushToken,
+                order.orderId,
+                restaurantName
+              );
+              console.log(`✨ Order Delivered notification sent for ${order.orderId}`);
+              break;
+
+            case 'Cancelled':
+              const cancellationReason = req.body.reason || 'Due to unavailability';
+              await pushNotificationService.sendOrderCancelledNotification(
+                customer.pushToken,
+                order.orderId,
+                cancellationReason
+              );
+              console.log(`❌ Order Cancelled notification sent for ${order.orderId}`);
+              break;
+          }
         }
       } catch (notificationError) {
         console.error('Error sending push notification:', notificationError);
         // Don't fail the request if notification fails
       }
     }
-    
+
     res.json({
       success: true,
       message: 'Order status updated successfully',
@@ -340,7 +428,7 @@ router.patch('/:id/status', [
         estimatedDeliveryTime: order.estimatedDeliveryTime
       }
     });
-    
+
   } catch (error) {
     console.error('Error updating order status:', error);
     res.status(500).json({
@@ -366,27 +454,27 @@ router.post('/:id/verify-otp', [
 
     const { otp } = req.body;
     const order = await Order.findById(req.params.id);
-    
+
     if (!order) {
       return res.status(404).json({
         success: false,
         message: 'Order not found'
       });
     }
-    
+
     // Verify OTP
     const isValidOTP = order.verifyOTP(otp);
-    
+
     if (!isValidOTP) {
       return res.status(400).json({
         success: false,
         message: 'Invalid or expired OTP'
       });
     }
-    
+
     // Update order status to delivered
     await order.updateStatus('Delivered');
-    
+
     // Update delivery person stats
     if (order.deliveryPersonId) {
       const deliveryPerson = await DeliveryPerson.findById(order.deliveryPersonId);
@@ -401,18 +489,18 @@ router.post('/:id/verify-otp', [
     if (order.customerInfo && order.customerInfo.email) {
       try {
         const customer = await Customer.findOne({ email: order.customerInfo.email });
-        
+
         if (customer && customer.pushToken) {
           const restaurant = await Restaurant.findById(order.restaurantId);
           const restaurantName = restaurant ? restaurant.name : 'Restaurant';
-          
+
           await pushNotificationService.sendOrderStatusUpdate(
             customer.pushToken,
             order.orderId,
             'Delivered',
             restaurantName
           );
-          
+
           console.log(`Push notification sent for order ${order.orderId} delivery completion`);
         }
       } catch (notificationError) {
@@ -420,7 +508,7 @@ router.post('/:id/verify-otp', [
         // Don't fail the request if notification fails
       }
     }
-    
+
     res.json({
       success: true,
       message: 'OTP verified successfully. Order marked as delivered.',
@@ -429,7 +517,7 @@ router.post('/:id/verify-otp', [
         status: order.status
       }
     });
-    
+
   } catch (error) {
     console.error('Error verifying OTP:', error);
     res.status(500).json({
@@ -449,10 +537,10 @@ router.patch('/:id/cancel', verifyToken, getUser, async (req, res) => {
       userRole: req.user.role,
       userEmail: req.userDetails.email
     });
-    
+
     const { reason } = req.body;
     const order = await Order.findById(req.params.id);
-    
+
     if (!order) {
       return res.status(404).json({
         success: false,
@@ -470,19 +558,19 @@ router.patch('/:id/cancel', verifyToken, getUser, async (req, res) => {
     const userId = req.user.id;
     const userRole = req.user.role;
     let allowed = false;
-    
+
     console.log('Authorization check:', {
       userRole,
       orderCustomerEmail: order.customerInfo?.email,
       userEmail: req.userDetails.email,
       orderRestaurantId: order.restaurantId
     });
-    
+
     if (userRole === 'customer' && order.customerInfo && req.userDetails.email && order.customerInfo.email === req.userDetails.email) {
       allowed = true;
       console.log('Customer authorization granted');
     }
-    
+
     if (userRole === 'vendor') {
       // Find vendor for this restaurant
       const restaurant = await Restaurant.findById(order.restaurantId);
@@ -492,13 +580,13 @@ router.patch('/:id/cancel', verifyToken, getUser, async (req, res) => {
         userId,
         match: restaurant?.vendorId?.toString() === userId
       });
-      
+
       if (restaurant && restaurant.vendorId && restaurant.vendorId.toString() === userId) {
         allowed = true;
         console.log('Vendor authorization granted');
       }
     }
-    
+
     if (!allowed) {
       console.log('Authorization denied');
       return res.status(403).json({
@@ -506,29 +594,29 @@ router.patch('/:id/cancel', verifyToken, getUser, async (req, res) => {
         message: 'You are not authorized to cancel this order.'
       });
     }
-    
+
     console.log('Authorization granted, proceeding with cancellation');
     // Save cancellation reason
     order.cancellationReason = reason || null;
     await order.updateStatus('Cancelled');
     await order.save();
-    
+
     // Send push notification to customer about order cancellation
     if (order.customerInfo && order.customerInfo.email) {
       try {
         const customer = await Customer.findOne({ email: order.customerInfo.email });
-        
+
         if (customer && customer.pushToken) {
           const restaurant = await Restaurant.findById(order.restaurantId);
           const restaurantName = restaurant ? restaurant.name : 'Restaurant';
-          
+
           await pushNotificationService.sendOrderStatusUpdate(
             customer.pushToken,
             order.orderId,
             'Cancelled',
             restaurantName
           );
-          
+
           console.log(`Push notification sent for order ${order.orderId} cancellation`);
         }
       } catch (notificationError) {
@@ -536,7 +624,7 @@ router.patch('/:id/cancel', verifyToken, getUser, async (req, res) => {
         // Don't fail the request if notification fails
       }
     }
-    
+
     res.json({
       success: true,
       message: 'Order cancelled successfully',
@@ -572,38 +660,38 @@ router.post('/:id/rate', [
 
     const { rating, review } = req.body;
     const order = await Order.findById(req.params.id);
-    
+
     if (!order) {
       return res.status(404).json({
         success: false,
         message: 'Order not found'
       });
     }
-    
+
     if (order.status !== 'Delivered') {
       return res.status(400).json({
         success: false,
         message: 'Can only rate delivered orders'
       });
     }
-    
+
     if (order.rating) {
       return res.status(400).json({
         success: false,
         message: 'Order already rated'
       });
     }
-    
+
     order.rating = rating;
     order.review = review;
     await order.save();
-    
+
     // Update restaurant rating
     const restaurant = await Restaurant.findById(order.restaurantId);
     if (restaurant) {
       await restaurant.updateRating(rating);
     }
-    
+
     res.json({
       success: true,
       message: 'Order rated successfully',
@@ -613,7 +701,7 @@ router.post('/:id/rate', [
         review: order.review
       }
     });
-    
+
   } catch (error) {
     console.error('Error rating order:', error);
     res.status(500).json({

@@ -18,6 +18,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { apiService } from '../../services/apiService';
+import { theme } from '../../utils/theme';
 
 const { width } = Dimensions.get('window');
 
@@ -191,8 +192,9 @@ const DeliveryOTPScreen = () => {
 
   return (
     <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor={theme.colors.background} />
       <LinearGradient
-        colors={['#667eea', '#764ba2']}
+        colors={[theme.colors.background, '#1A1A1A']}
         style={styles.gradientBackground}
       >
         <KeyboardAvoidingView 
@@ -214,9 +216,9 @@ const DeliveryOTPScreen = () => {
               ]}
             >
               <View style={styles.iconContainer}>
-                <MaterialIcons name="verified" size={60} color="white" />
+                <MaterialIcons name="verified-user" size={50} color={theme.colors.primary} />
               </View>
-              <Text style={styles.title}>OTP Verification</Text>
+              <Text style={styles.title}>Secure Transfer</Text>
               <Text style={styles.subtitle}>Complete delivery by verifying customer OTP</Text>
             </Animated.View>
 
@@ -231,29 +233,26 @@ const DeliveryOTPScreen = () => {
               ]}
             >
               <View style={styles.cardHeader}>
-                <MaterialIcons name="receipt" size={24} color="#667eea" />
+                <MaterialIcons name="receipt" size={24} color={theme.colors.textSecondary} />
                 <Text style={styles.cardTitle}>Order Information</Text>
               </View>
               
               <View style={styles.orderDetails}>
                 <View style={styles.orderRow}>
-                  <MaterialIcons name="confirmation-number" size={20} color="#666" />
-                  <Text style={styles.orderLabel}>Order ID:</Text>
-                  <Text style={styles.orderValue}>{orderId}</Text>
+                  <Text style={styles.orderLabel}>ORDER ID:</Text>
+                  <Text style={styles.orderValue}>#{orderId}</Text>
                 </View>
                 
                 {orderDetails && (
                   <>
                     <View style={styles.orderRow}>
-                      <MaterialIcons name="person" size={20} color="#666" />
-                      <Text style={styles.orderLabel}>Customer:</Text>
+                      <Text style={styles.orderLabel}>CUSTOMER:</Text>
                       <Text style={styles.orderValue}>{orderDetails.customerInfo?.name || 'N/A'}</Text>
                     </View>
                     
                     <View style={styles.orderRow}>
-                      <MaterialIcons name="attach-money" size={20} color="#666" />
-                      <Text style={styles.orderLabel}>Amount:</Text>
-                      <Text style={styles.orderValue}>₹{orderDetails.totalAmount}</Text>
+                      <Text style={styles.orderLabel}>AMOUNT:</Text>
+                      <Text style={[styles.orderValue, { color: theme.colors.primary }]}>₹{orderDetails.totalAmount}</Text>
                     </View>
                   </>
                 )}
@@ -271,12 +270,12 @@ const DeliveryOTPScreen = () => {
               ]}
             >
               <View style={styles.cardHeader}>
-                <MaterialIcons name="lock" size={24} color="#667eea" />
-                <Text style={styles.cardTitle}>Enter Customer OTP</Text>
+                <MaterialIcons name="lock-outline" size={24} color={theme.colors.primary} />
+                <Text style={styles.cardTitle}>Enter Handover PIN</Text>
               </View>
               
               <Text style={styles.otpDescription}>
-                Ask the customer for the 4-digit OTP sent to their email
+                Request the 4-digit verification code from the recipient to finalize the delivery.
               </Text>
 
               <View style={styles.otpInputContainer}>
@@ -285,13 +284,12 @@ const DeliveryOTPScreen = () => {
                   value={otp}
                   onChangeText={setOtp}
                   placeholder="0000"
-                  placeholderTextColor="#ccc"
+                  placeholderTextColor={theme.colors.textSecondary}
                   keyboardType="numeric"
                   maxLength={4}
                   autoFocus
-                  selectionColor="#667eea"
+                  selectionColor={theme.colors.primary}
                 />
-                <MaterialIcons name="keyboard" size={24} color="#667eea" style={styles.inputIcon} />
               </View>
 
               {/* Timer */}
@@ -333,15 +331,15 @@ const DeliveryOTPScreen = () => {
                 activeOpacity={0.8}
               >
                 <LinearGradient
-                  colors={['#4CAF50', '#45a049']}
+                  colors={[theme.colors.success, '#1B5E20']}
                   style={styles.buttonGradient}
                 >
                   {loading ? (
                     <ActivityIndicator color="white" size="small" />
                   ) : (
                     <>
-                      <MaterialIcons name="check-circle" size={24} color="white" />
-                      <Text style={styles.verifyButtonText}>Verify & Complete Delivery</Text>
+                      <MaterialIcons name="check-circle" size={20} color="white" />
+                      <Text style={styles.verifyButtonText}>VERIFY & TRANSFER</Text>
                     </>
                   )}
                 </LinearGradient>
@@ -358,12 +356,12 @@ const DeliveryOTPScreen = () => {
                 activeOpacity={0.8}
               >
                 {resendingOTP ? (
-                  <ActivityIndicator color="#667eea" size="small" />
+                  <ActivityIndicator color={theme.colors.primary} size="small" />
                 ) : (
                   <>
-                    <MaterialIcons name="refresh" size={20} color="#667eea" />
-                    <Text style={styles.resendButtonText}>
-                      {timeLeft > 300 ? 'OTP Still Valid' : 'Resend OTP'}
+                    <MaterialIcons name="refresh" size={20} color={timeLeft > 300 ? theme.colors.textSecondary : theme.colors.primary} />
+                    <Text style={[styles.resendButtonText, { color: timeLeft > 300 ? theme.colors.textSecondary : theme.colors.primary }]}>
+                      {timeLeft > 300 ? 'CODE STILL VALID' : 'RESEND CODE'}
                     </Text>
                   </>
                 )}
@@ -380,11 +378,11 @@ const DeliveryOTPScreen = () => {
                 activeOpacity={0.8}
               >
                 {generatingOTP ? (
-                  <ActivityIndicator color="#2196F3" size="small" />
+                  <ActivityIndicator color={theme.colors.textSecondary} size="small" />
                 ) : (
                   <>
-                    <MaterialIcons name="add-circle" size={20} color="#2196F3" />
-                    <Text style={styles.generateButtonText}>Generate New OTP</Text>
+                    <MaterialIcons name="fiber-new" size={20} color={theme.colors.textSecondary} />
+                    <Text style={styles.generateButtonText}>GENERATE NEW PIN</Text>
                   </>
                 )}
               </TouchableOpacity>
@@ -401,8 +399,8 @@ const DeliveryOTPScreen = () => {
               ]}
             >
               <View style={styles.cardHeader}>
-                <MaterialIcons name="info" size={24} color="#667eea" />
-                <Text style={styles.cardTitle}>Instructions</Text>
+                <MaterialIcons name="info-outline" size={24} color={theme.colors.textSecondary} />
+                <Text style={styles.cardTitle}>Procedure</Text>
               </View>
               
               <View style={styles.instructionsList}>
@@ -410,28 +408,14 @@ const DeliveryOTPScreen = () => {
                   <View style={styles.instructionNumber}>
                     <Text style={styles.numberText}>1</Text>
                   </View>
-                  <Text style={styles.instructionText}>Ask customer for the 4-digit OTP from their email</Text>
+                  <Text style={styles.instructionText}>Ask recipient for the 4-digit code from email inbox.</Text>
                 </View>
                 
                 <View style={styles.instructionItem}>
                   <View style={styles.instructionNumber}>
                     <Text style={styles.numberText}>2</Text>
                   </View>
-                  <Text style={styles.instructionText}>Enter the OTP in the field above</Text>
-                </View>
-                
-                <View style={styles.instructionItem}>
-                  <View style={styles.instructionNumber}>
-                    <Text style={styles.numberText}>3</Text>
-                  </View>
-                  <Text style={styles.instructionText}>Tap "Verify & Complete Delivery" to finish</Text>
-                </View>
-                
-                <View style={styles.instructionItem}>
-                  <View style={styles.instructionNumber}>
-                    <Text style={styles.numberText}>4</Text>
-                  </View>
-                  <Text style={styles.instructionText}>If OTP expires, you can resend it</Text>
+                  <Text style={styles.instructionText}>Authorize the transfer by verifying the code.</Text>
                 </View>
               </View>
             </Animated.View>
@@ -445,6 +429,7 @@ const DeliveryOTPScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: theme.colors.background,
   },
   gradientBackground: {
     flex: 1,
@@ -455,152 +440,164 @@ const styles = StyleSheet.create({
   scrollContainer: {
     flexGrow: 1,
     padding: 20,
-    paddingTop: 10,
+    paddingTop: 40,
+    paddingBottom: 40,
   },
   header: {
     alignItems: 'center',
-    marginBottom: 30,
+    marginBottom: 40,
     paddingTop: 20,
   },
   iconContainer: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: 'rgba(212,175,55,0.1)',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(212,175,55,0.3)',
   },
   title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: 'white',
+    fontSize: 24,
+    fontWeight: '900',
+    color: theme.colors.text,
     marginBottom: 8,
     textAlign: 'center',
+    letterSpacing: 2,
+    textTransform: 'uppercase',
   },
   subtitle: {
-    fontSize: 16,
-    color: 'rgba(255, 255, 255, 0.9)',
+    fontSize: 14,
+    color: theme.colors.textSecondary,
     textAlign: 'center',
     lineHeight: 22,
+    paddingHorizontal: 20,
   },
   orderCard: {
-    backgroundColor: 'white',
-    borderRadius: 20,
+    backgroundColor: theme.colors.surface,
+    borderRadius: 16,
     padding: 20,
     marginBottom: 20,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
     elevation: 8,
-    shadowColor: '#000',
+    shadowColor: theme.colors.primary,
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
+    shadowOpacity: 0.2,
+    shadowRadius: 10,
   },
   cardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 15,
+    marginBottom: 20,
+    paddingBottom: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
   },
   cardTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#333',
+    fontSize: 14,
+    fontWeight: '900',
+    color: theme.colors.textSecondary,
     marginLeft: 10,
+    letterSpacing: 1.5,
+    textTransform: 'uppercase',
   },
   orderDetails: {
-    gap: 12,
+    gap: 16,
   },
   orderRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 8,
+    justifyContent: 'space-between',
   },
   orderLabel: {
-    fontSize: 16,
-    color: '#666',
-    marginLeft: 10,
-    marginRight: 10,
-    fontWeight: '500',
+    fontSize: 12,
+    color: theme.colors.textSecondary,
+    fontWeight: 'bold',
+    letterSpacing: 1,
   },
   orderValue: {
     fontSize: 16,
-    color: '#333',
-    fontWeight: 'bold',
-    flex: 1,
+    color: theme.colors.text,
+    fontWeight: '900',
+    textAlign: 'right',
   },
   otpCard: {
-    backgroundColor: 'white',
-    borderRadius: 20,
+    backgroundColor: theme.colors.surface,
+    borderRadius: 16,
     padding: 20,
-    marginBottom: 20,
+    marginBottom: 24,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
     elevation: 8,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
+    shadowOpacity: 0.5,
+    shadowRadius: 10,
   },
   otpDescription: {
-    fontSize: 16,
-    color: '#666',
-    marginBottom: 20,
+    fontSize: 14,
+    color: theme.colors.textSecondary,
+    marginBottom: 24,
     lineHeight: 22,
+    textAlign: 'center',
   },
   otpInputContainer: {
     position: 'relative',
-    marginBottom: 15,
+    marginBottom: 20,
   },
   otpInput: {
-    borderWidth: 2,
-    borderColor: '#667eea',
-    borderRadius: 15,
+    borderWidth: 1,
+    borderColor: theme.colors.goldBorder,
+    borderRadius: 16,
     padding: 20,
-    fontSize: 24,
+    fontSize: 32,
     textAlign: 'center',
-    letterSpacing: 8,
-    fontWeight: 'bold',
-    color: '#333',
-    backgroundColor: '#f8f9fa',
-  },
-  inputIcon: {
-    position: 'absolute',
-    right: 15,
-    top: '50%',
-    marginTop: -12,
+    letterSpacing: 16,
+    fontWeight: '900',
+    color: theme.colors.primary,
+    backgroundColor: theme.colors.surface,
   },
   timerContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 10,
+    backgroundColor: theme.colors.surfaceVariant,
+    borderRadius: 8,
   },
   timerText: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: 'bold',
     marginLeft: 8,
+    letterSpacing: 1,
   },
   expiredContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 10,
+    backgroundColor: 'rgba(244,67,54,0.1)',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(244,67,54,0.3)',
   },
   expiredText: {
-    fontSize: 16,
-    color: '#F44336',
+    fontSize: 14,
+    color: theme.colors.error,
     fontWeight: 'bold',
     marginLeft: 8,
   },
   buttonContainer: {
-    marginBottom: 20,
-    gap: 12,
+    marginBottom: 24,
+    gap: 16,
   },
   verifyButton: {
-    borderRadius: 15,
+    borderRadius: 16,
     overflow: 'hidden',
     elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
   },
   buttonGradient: {
     flexDirection: 'row',
@@ -611,91 +608,79 @@ const styles = StyleSheet.create({
   },
   verifyButtonText: {
     color: 'white',
-    fontSize: 18,
-    fontWeight: 'bold',
+    fontSize: 14,
+    fontWeight: '900',
+    letterSpacing: 1,
   },
   resendButton: {
-    backgroundColor: 'white',
-    borderWidth: 2,
-    borderColor: '#667eea',
-    borderRadius: 15,
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: 16,
     padding: 16,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
   },
   resendButtonText: {
-    color: '#667eea',
-    fontSize: 16,
+    fontSize: 12,
     fontWeight: 'bold',
+    letterSpacing: 1,
   },
   generateButton: {
-    backgroundColor: 'white',
-    borderWidth: 2,
-    borderColor: '#2196F3',
-    borderRadius: 15,
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: 16,
     padding: 16,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
   },
   generateButtonText: {
-    color: '#2196F3',
-    fontSize: 16,
+    color: theme.colors.textSecondary,
+    fontSize: 12,
     fontWeight: 'bold',
+    letterSpacing: 1,
   },
   disabledButton: {
-    opacity: 0.6,
+    opacity: 0.4,
   },
   instructionsCard: {
-    backgroundColor: 'white',
-    borderRadius: 20,
+    backgroundColor: theme.colors.surface,
+    borderRadius: 16,
     padding: 20,
-    elevation: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
   },
   instructionsList: {
-    gap: 15,
+    gap: 16,
   },
   instructionItem: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
   },
   instructionNumber: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: '#667eea',
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.1)',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 15,
-    marginTop: 2,
   },
   numberText: {
-    color: 'white',
-    fontSize: 14,
+    color: theme.colors.textSecondary,
+    fontSize: 12,
     fontWeight: 'bold',
   },
   instructionText: {
-    fontSize: 16,
-    color: '#666',
+    fontSize: 14,
+    color: theme.colors.textSecondary,
     flex: 1,
-    lineHeight: 22,
+    lineHeight: 20,
   },
 });
 

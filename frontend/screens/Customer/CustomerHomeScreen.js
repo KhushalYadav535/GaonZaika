@@ -18,11 +18,15 @@ import {
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
+import { MotiView, MotiText, ScrollView } from 'moti';
+import { Skeleton } from 'moti/skeleton';
 import { apiService } from '../../services/apiService';
 import locationService from '../../services/locationService';
 import LocationSettingsModal from '../../components/LocationSettingsModal';
 import { getRestaurantImageUrl } from '../../utils/imageUtils';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { theme } from '../../utils/theme';
 
 const { width } = Dimensions.get('window');
 
@@ -39,6 +43,7 @@ const CustomerHomeScreen = ({ navigation }) => {
   const [customerName, setCustomerName] = useState('');
   const [categories, setCategories] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState(null);
+  const [selectedStory, setSelectedStory] = useState(null);
   const [searchFocused, setSearchFocused] = useState(false);
   
   // Animation values
@@ -105,7 +110,7 @@ const CustomerHomeScreen = ({ navigation }) => {
 
   useEffect(() => {
     filterRestaurants();
-  }, [searchQuery, restaurants, selectedCategory]);
+  }, [searchQuery, restaurants, selectedCategory, selectedStory]);
 
   const initializeLocationAndLoadRestaurants = async () => {
     try {
@@ -229,7 +234,54 @@ const CustomerHomeScreen = ({ navigation }) => {
   const filterRestaurants = () => {
     let filtered = restaurants;
     
-    // Filter by selected category
+    // Filter by selected story (special filters)
+    if (selectedStory) {
+      filtered = filtered.filter(restaurant => {
+        const cuisineLower = (restaurant.cuisine || '').toLowerCase();
+        const nameLower = (restaurant.name || '').toLowerCase();
+        
+        switch(selectedStory) {
+          case 'Offers':
+            // Show restaurants with discounts or special offers
+            return restaurant.deliveryFee <= 10 || restaurant.minOrder <= 150;
+          case 'Healthy':
+            // Show restaurants with healthy cuisines
+            return cuisineLower.includes('healthy') || 
+                   cuisineLower.includes('salad') || 
+                   cuisineLower.includes('vegan') ||
+                   cuisineLower.includes('organic') ||
+                   nameLower.includes('healthy') ||
+                   nameLower.includes('fresh');
+          case 'Desserts':
+            // Show restaurants with desserts
+            return cuisineLower.includes('dessert') || 
+                   cuisineLower.includes('bakery') || 
+                   cuisineLower.includes('sweet') ||
+                   cuisineLower.includes('cake') ||
+                   cuisineLower.includes('ice cream') ||
+                   nameLower.includes('bakery') ||
+                   nameLower.includes('cake');
+          case 'Fast Food':
+            // Show fast food restaurants
+            return cuisineLower.includes('fast food') || 
+                   cuisineLower.includes('fastfood') || 
+                   cuisineLower.includes('burger') || 
+                   cuisineLower.includes('pizza') ||
+                   cuisineLower.includes('fries') ||
+                   cuisineLower.includes('chicken') ||
+                   nameLower.includes('burger') ||
+                   nameLower.includes('pizza') ||
+                   nameLower.includes('kfc');
+          case 'Premium':
+            // Show premium/high-rated restaurants
+            return restaurant.rating >= 4 || restaurant.totalRatings >= 100;
+          default:
+            return true;
+        }
+      });
+    }
+    
+    // Filter by selected category (cuisine)
     if (selectedCategory) {
       filtered = filtered.filter(r => r.cuisine === selectedCategory);
     }
@@ -331,6 +383,72 @@ const CustomerHomeScreen = ({ navigation }) => {
     }
   };
 
+  const stories = [
+    { id: 1, name: 'Offers', image: 'https://images.unsplash.com/photo-1550547660-d9450f859349?w=100&q=80' },
+    { id: 2, name: 'Healthy', image: 'https://images.unsplash.com/photo-1490645935967-10de6ba17061?w=100&q=80' },
+    { id: 3, name: 'Desserts', image: 'https://images.unsplash.com/photo-1551024506-0bccd828d307?w=100&q=80' },
+    { id: 4, name: 'Fast Food', image: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=100&q=80' },
+    { id: 5, name: 'Premium', image: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=100&q=80' },
+  ];
+
+  const renderStory = ({ item }) => (
+    <TouchableOpacity 
+      style={{ alignItems: 'center', marginRight: 15, marginTop: 15 }}
+      onPress={() => {
+        // Toggle story selection
+        if (selectedStory === item.name) {
+          setSelectedStory(null);
+          setSelectedCategory(null);
+        } else {
+          setSelectedStory(item.name);
+          setSelectedCategory(null); // Clear category filter when selecting story
+        }
+      }}
+      activeOpacity={0.7}
+    >
+      <LinearGradient
+        colors={selectedStory === item.name 
+          ? ['#FF5722', '#FF8C42'] 
+          : [theme.colors.primary, theme.colors.secondary]
+        }
+        style={{ 
+          width: 70, 
+          height: 70, 
+          borderRadius: 35, 
+          padding: 3, 
+          justifyContent: 'center', 
+          alignItems: 'center',
+          borderWidth: selectedStory === item.name ? 3 : 0,
+          borderColor: selectedStory === item.name ? 'white' : 'transparent',
+          elevation: selectedStory === item.name ? 8 : 2,
+          shadowColor: selectedStory === item.name ? '#FF5722' : '#000',
+          shadowOffset: { width: 0, height: selectedStory === item.name ? 6 : 2 },
+          shadowOpacity: selectedStory === item.name ? 0.3 : 0.1,
+          shadowRadius: selectedStory === item.name ? 8 : 3,
+        }}
+      >
+        <Image 
+          source={{ uri: item.image }} 
+          style={{ 
+            width: 60, 
+            height: 60, 
+            borderRadius: 30, 
+            borderWidth: 2, 
+            borderColor: 'white' 
+          }} 
+        />
+      </LinearGradient>
+      <Text style={{ 
+        color: selectedStory === item.name ? '#FF6B35' : theme.colors.textSecondary, 
+        fontSize: 13, 
+        marginTop: 8, 
+        fontWeight: selectedStory === item.name ? '700' : '600'
+      }}>
+        {item.name}
+      </Text>
+    </TouchableOpacity>
+  );
+
   const renderRestaurant = ({ item, index }) => {
     return (
       <Animated.View
@@ -344,7 +462,19 @@ const CustomerHomeScreen = ({ navigation }) => {
       >
         <TouchableOpacity
           style={[
-            styles.restaurantCard,
+            {
+              backgroundColor: theme.colors.surface,
+              borderRadius: theme.borderRadius.l,
+              marginBottom: theme.spacing.m,
+              overflow: 'hidden',
+              elevation: 8,
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 8 },
+              shadowOpacity: 0.3,
+              shadowRadius: 12,
+              borderWidth: 1,
+              borderColor: theme.colors.border,
+            },
             !item.isOpen && styles.closedRestaurantCard
           ]}
           onPress={() => {
@@ -356,119 +486,83 @@ const CustomerHomeScreen = ({ navigation }) => {
               );
               return;
             }
-            console.log('Navigating to restaurant menu with data:', item);
             navigation.navigate('RestaurantMenu', { restaurant: item });
           }}
           activeOpacity={item.isOpen ? 0.8 : 1}
           disabled={!item.isOpen}
         >
-          <View style={styles.imageContainer}>
+          <View style={{ position: 'relative' }}>
             <Image 
               source={{ uri: item.image }} 
-              style={styles.restaurantImage}
-              onError={(error) => console.log('Restaurant image loading error:', error)}
+              style={{ width: '100%', height: 180, resizeMode: 'cover' }}
               defaultSource={{ uri: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=400' }}
             />
-            
-            {/* Gradient Overlay */}
             <LinearGradient
-              colors={['transparent', 'rgba(0,0,0,0.7)']}
-              style={styles.imageOverlay}
+              colors={['transparent', 'rgba(0,0,0,0.35)']}
+              style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 100 }}
             />
             
-            {/* Status Badge */}
-            <View style={[
-              styles.statusBadge, 
-              { 
-                backgroundColor: item.isOpen ? '#4CAF50' : '#F44336'
-              }
-            ]}>
-              <MaterialIcons 
-                name={item.isOpen ? "check-circle" : "cancel"} 
-                size={14} 
-                color="white" 
-              />
-              <Text style={styles.statusText}>
+            <BlurView intensity={20} tint="light" style={{
+              position: 'absolute',
+              top: 15,
+              right: 15,
+              flexDirection: 'row',
+              alignItems: 'center',
+              paddingHorizontal: 12,
+              paddingVertical: 6,
+              borderRadius: 20,
+              backgroundColor: item.isOpen ? 'rgba(22, 163, 74, 0.15)' : 'rgba(220, 38, 38, 0.15)',
+              borderWidth: 1,
+              borderColor: item.isOpen ? theme.colors.success : theme.colors.error,
+              overflow: 'hidden'
+            }}>
+              <MaterialIcons name={item.isOpen ? "check-circle" : "cancel"} size={14} color={item.isOpen ? theme.colors.success : theme.colors.error} />
+              <Text style={{ fontSize: 12, fontWeight: 'bold', color: item.isOpen ? theme.colors.success : theme.colors.error, marginLeft: 4 }}>
                 {item.isOpen ? 'OPEN' : 'CLOSED'}
               </Text>
-            </View>
+            </BlurView>
 
-            {/* Rating Badge */}
-            <View style={styles.ratingBadge}>
-              <MaterialIcons name="star" size={16} color="#FFD700" />
-              <Text style={styles.ratingText}>{item.rating}</Text>
-            </View>
-
-            {/* Quick Info Overlay */}
-            <View style={styles.quickInfoOverlay}>
-              <View style={styles.quickInfoItem}>
-                <MaterialIcons name="access-time" size={12} color="white" />
-                <Text style={styles.quickInfoText}>{item.estimatedDeliveryTime}</Text>
-              </View>
-              <View style={styles.quickInfoItem}>
-                <MaterialIcons name="local-shipping" size={12} color="white" />
-                <Text style={styles.quickInfoText}>₹{item.deliveryFee}</Text>
-              </View>
-            </View>
+            <BlurView intensity={20} tint="light" style={{
+              position: 'absolute',
+              top: 15,
+              left: 15,
+              flexDirection: 'row',
+              alignItems: 'center',
+              paddingHorizontal: 10,
+              paddingVertical: 6,
+              borderRadius: 15,
+              overflow: 'hidden',
+              backgroundColor: 'rgba(255,255,255,0.85)'
+            }}>
+              <MaterialIcons name="star" size={16} color={theme.colors.primary} />
+              <Text style={{ fontSize: 14, fontWeight: 'bold', color: theme.colors.text, marginLeft: 4 }}>{item.rating}</Text>
+            </BlurView>
           </View>
 
-          <View style={styles.restaurantInfo}>
-            <View style={styles.restaurantHeader}>
-              <Text style={styles.restaurantName} numberOfLines={1}>{item.name}</Text>
-              <View style={styles.ratingContainer}>
-                <MaterialIcons name="star" size={14} color="#FFD700" />
-                <Text style={styles.ratingValue}>{item.rating}</Text>
-                <Text style={styles.ratingCount}>({item.totalRatings})</Text>
-              </View>
+          <View style={{ padding: theme.spacing.m }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+              <Text style={{ fontSize: 20, fontWeight: 'bold', color: theme.colors.text, flex: 1 }} numberOfLines={1}>{item.name}</Text>
+              <Text style={{ fontSize: 12, color: theme.colors.textSecondary }}>({item.totalRatings}+ ratings)</Text>
             </View>
             
-            <Text style={styles.cuisine} numberOfLines={1}>
-              {item.cuisine && item.cuisine.toLowerCase() !== 'mixed' ? item.cuisine : ''}
+            <Text style={{ fontSize: 14, color: theme.colors.primary, fontWeight: '600', marginBottom: 12 }} numberOfLines={1}>
+              {item.cuisine && item.cuisine.toLowerCase() !== 'mixed' ? item.cuisine : 'Premium Dining'}
             </Text>
             
-            {/* Location Info */}
-            <View style={styles.locationInfo}>
-              <View style={styles.locationItem}>
-                <MaterialIcons name="location-on" size={14} color="#4CAF50" />
-                <Text style={styles.locationText} numberOfLines={1}>{item.distance}</Text>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingTop: 12, borderTopWidth: 1, borderTopColor: theme.colors.border }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <MaterialIcons name="schedule" size={14} color={theme.colors.textSecondary} />
+                <Text style={{ marginLeft: 6, fontSize: 13, color: theme.colors.textSecondary }}>{item.estimatedDeliveryTime}</Text>
               </View>
-              <Text style={styles.addressText} numberOfLines={1}>
-                {item.address}
-              </Text>
-            </View>
-
-            {/* Restaurant Details */}
-            <View style={styles.restaurantDetails}>
-              <View style={styles.detailItem}>
-                <MaterialIcons name="access-time" size={14} color="#FF9800" />
-                <Text style={styles.detailText}>{item.estimatedDeliveryTime}</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <MaterialIcons name="directions-bike" size={14} color={theme.colors.textSecondary} />
+                <Text style={{ marginLeft: 6, fontSize: 13, color: theme.colors.textSecondary }}>{item.distance}</Text>
               </View>
-              <View style={styles.detailItem}>
-                <MaterialIcons name="attach-money" size={14} color="#4CAF50" />
-                <Text style={styles.detailText}>Min ₹{item.minOrder}</Text>
-              </View>
-              <View style={styles.detailItem}>
-                <MaterialIcons name="local-shipping" size={14} color="#2196F3" />
-                <Text style={styles.detailText}>₹{item.deliveryFee}</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <MaterialIcons name="account-balance-wallet" size={14} color={theme.colors.textSecondary} />
+                <Text style={{ marginLeft: 6, fontSize: 13, color: theme.colors.textSecondary }}>₹{item.deliveryFee}</Text>
               </View>
             </View>
-
-            {/* Order Now Button */}
-            {item.isOpen && (
-              <TouchableOpacity 
-                style={styles.orderNowButton}
-                onPress={() => navigation.navigate('RestaurantMenu', { restaurant: item })}
-                activeOpacity={0.8}
-              >
-                <LinearGradient
-                  colors={['#4CAF50', '#45a049', '#388E3C']}
-                  style={styles.orderNowGradient}
-                >
-                  <MaterialIcons name="restaurant-menu" size={18} color="white" />
-                  <Text style={styles.orderNowText}>View Menu</Text>
-                </LinearGradient>
-              </TouchableOpacity>
-            )}
           </View>
         </TouchableOpacity>
       </Animated.View>
@@ -477,31 +571,53 @@ const CustomerHomeScreen = ({ navigation }) => {
 
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
-        <LinearGradient
-          colors={['#4CAF50', '#45a049', '#388E3C']}
-          style={styles.loadingGradient}
-        >
-          <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
-            <View style={styles.loadingIconContainer}>
-              <MaterialIcons name="restaurant" size={60} color="white" />
+      <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
+        <View style={styles.header}>
+          <View style={styles.greetingContainer}>
+            <Skeleton colorMode="dark" radius="round" height={60} width={60} />
+            <View style={{ marginLeft: 15, flex: 1, gap: 10 }}>
+              <Skeleton colorMode="dark" width="60%" height={25} />
+              <Skeleton colorMode="dark" width="40%" height={15} />
             </View>
-          </Animated.View>
-          <ActivityIndicator size="large" color="white" />
-          <Text style={styles.loadingText}>Discovering amazing restaurants...</Text>
-          <Text style={styles.loadingSubtext}>Finding the best food near you</Text>
-        </LinearGradient>
-      </View>
+          </View>
+          <View style={{ marginHorizontal: 20 }}>
+            <Skeleton colorMode="dark" width="100%" height={50} radius={16} />
+          </View>
+        </View>
+        
+        <View style={{ padding: 20, gap: 20 }}>
+          {[1, 2, 3].map((key) => (
+            <MotiView
+              key={key}
+              from={{ opacity: 0, translateY: 10 }}
+              animate={{ opacity: 1, translateY: 0 }}
+              transition={{ delay: key * 200 }}
+              style={{
+                backgroundColor: theme.colors.surface,
+                borderRadius: 24,
+                overflow: 'hidden',
+                height: 280
+              }}
+            >
+              <Skeleton colorMode="dark" width="100%" height={180} />
+              <View style={{ padding: 15, gap: 10 }}>
+                <Skeleton colorMode="dark" width="80%" height={24} />
+                <Skeleton colorMode="dark" width="50%" height={16} />
+              </View>
+            </MotiView>
+          ))}
+        </View>
+      </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#4CAF50" />
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
+      <StatusBar barStyle="light-content" backgroundColor="#FF5722" translucent={false} />
       
-      {/* Header with Gradient Background */}
+      {/* Header with Premium Dark Gradient Background */}
       <LinearGradient
-        colors={['#4CAF50', '#45a049', '#388E3C']}
+        colors={['#FF5722', '#FF6B35', '#FF8C42']}
         style={styles.header}
       >
         <Animated.View 
@@ -522,13 +638,13 @@ const CustomerHomeScreen = ({ navigation }) => {
               { transform: [{ scale: pulseAnim }] }
             ]}
           >
-            <MaterialIcons name="restaurant" size={28} color="white" />
+            <MaterialIcons name="restaurant" size={32} color="white" />
           </Animated.View>
           <View style={styles.greetingTexts}>
-            <Text style={styles.greetingText}>
+            <Text style={styles.greetingText} numberOfLines={1} ellipsizeMode="tail">
               {customerName ? `Hello, ${customerName.split(' ')[0]}! 👋` : 'Welcome! 👋'}
             </Text>
-            <Text style={styles.greetingSubtext}>What would you like to eat today?</Text>
+            <Text style={styles.greetingSubtext} numberOfLines={1} ellipsizeMode="tail">What would you like to eat today?</Text>
           </View>
         </Animated.View>
 
@@ -597,7 +713,7 @@ const CustomerHomeScreen = ({ navigation }) => {
         </Animated.View>
       </LinearGradient>
 
-      {/* Enhanced Category Chips */}
+      {/* Enhanced Category Chips with Clear Filter */}
       <Animated.View 
         style={[
           styles.categoryChipsContainer,
@@ -607,6 +723,19 @@ const CustomerHomeScreen = ({ navigation }) => {
           }
         ]}
       >
+        {(selectedCategory || selectedStory) && (
+          <TouchableOpacity
+            style={styles.clearFilterButton}
+            onPress={() => {
+              setSelectedCategory(null);
+              setSelectedStory(null);
+            }}
+            activeOpacity={0.7}
+          >
+            <MaterialIcons name="close" size={16} color="white" />
+            <Text style={styles.clearFilterText}>Clear Filters</Text>
+          </TouchableOpacity>
+        )}
         <FlatList
           data={categories}
           horizontal
@@ -631,7 +760,15 @@ const CustomerHomeScreen = ({ navigation }) => {
                   styles.categoryChip,
                   selectedCategory === item && styles.selectedCategoryChip
                 ]}
-                onPress={() => setSelectedCategory(item === selectedCategory ? null : item)}
+                onPress={() => {
+                  // Toggle category selection
+                  if (selectedCategory === item) {
+                    setSelectedCategory(null);
+                  } else {
+                    setSelectedCategory(item);
+                    setSelectedStory(null); // Clear story filter when selecting category
+                  }
+                }}
                 activeOpacity={0.7}
               >
                 <MaterialIcons 
@@ -653,8 +790,8 @@ const CustomerHomeScreen = ({ navigation }) => {
         />
       </Animated.View>
 
-      {/* Search Results Counter */}
-      {searchQuery.trim() && (
+      {/* Search Results Counter + Active Filter Display */}
+      {(searchQuery.trim() || selectedCategory || selectedStory) && (
         <Animated.View 
           style={[
             styles.searchResultsCounter,
@@ -665,11 +802,57 @@ const CustomerHomeScreen = ({ navigation }) => {
           ]}
         >
           <Text style={styles.searchResultsText}>
+            {selectedStory && (
+              <Text style={styles.activeFilterTag}>📌 {selectedStory} • </Text>
+            )}
+            {selectedCategory && (
+              <Text style={styles.activeFilterTag}>🍽️ {selectedCategory} • </Text>
+            )}
             Found {filteredRestaurants.length} restaurant{filteredRestaurants.length !== 1 ? 's' : ''}
-            {searchQuery.trim() && ` for "${searchQuery}"`}
+            {searchQuery.trim() && ` matching "${searchQuery}"`}
           </Text>
         </Animated.View>
       )}
+
+      {/* Stories / Trending Horizontal Bar */}
+      <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }], paddingBottom: 10 }}>
+        <FlatList
+          data={stories}
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          keyExtractor={(item) => item.id.toString()}
+          renderItem={renderStory}
+          contentContainerStyle={{ paddingHorizontal: 20 }}
+        />
+      </Animated.View>
+
+      {/* Browse by Food Button */}
+      <Animated.View 
+        style={[
+          styles.browseFoodButtonContainer,
+          {
+            opacity: fadeAnim,
+            transform: [{ translateY: slideAnim }]
+          }
+        ]}
+      >
+        <TouchableOpacity
+          style={styles.browseFoodButton}
+          onPress={() => navigation.navigate('FoodBrowse')}
+          activeOpacity={0.7}
+        >
+          <LinearGradient
+            colors={['#1565C0', '#2196F3', '#1976D2']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.browseFoodGradient}
+          >
+            <MaterialIcons name="restaurant-menu" size={20} color="white" />
+            <Text style={styles.browseFoodText}>Browse Foods</Text>
+            <MaterialIcons name="arrow-forward" size={16} color="white" />
+          </LinearGradient>
+        </TouchableOpacity>
+      </Animated.View>
 
       {/* Restaurants List */}
       <FlatList
@@ -792,67 +975,76 @@ const styles = StyleSheet.create({
   },
   header: {
     paddingTop: 20,
-    paddingBottom: 20,
-    elevation: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.2,
-    shadowRadius: 12,
+    paddingBottom: 28,
+    elevation: 16,
+    shadowColor: '#FF5722',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.35,
+    shadowRadius: 16,
   },
   greetingContainer: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     paddingHorizontal: 20,
     marginBottom: 20,
   },
   greetingIcon: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 15,
+    marginRight: 14,
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.4)',
+    flexShrink: 0,
   },
   greetingTexts: {
     flex: 1,
+    paddingTop: 2,
   },
   greetingText: {
-    fontSize: 26,
-    fontWeight: 'bold',
+    fontSize: 28,
+    fontWeight: '900',
     color: 'white',
-    marginBottom: 4,
+    marginBottom: 3,
+    letterSpacing: 0.5,
   },
   greetingSubtext: {
     fontSize: 15,
-    color: 'rgba(255, 255, 255, 0.9)',
+    color: 'rgba(255, 255, 255, 0.95)',
+    fontWeight: '500',
+    letterSpacing: 0.3,
   },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'white',
     marginHorizontal: 20,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 16,
-    elevation: 4,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 18,
+    elevation: 8,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    marginBottom: 14,
   },
   searchContainerFocused: {
-    elevation: 8,
-    shadowOpacity: 0.2,
-    transform: [{ scale: 1.01 }],
+    elevation: 12,
+    shadowOpacity: 0.25,
+    backgroundColor: '#ffffff',
   },
   searchIcon: {
-    marginRight: 8,
+    marginRight: 10,
   },
   searchInput: {
     flex: 1,
-    fontSize: 13,
+    fontSize: 14,
     color: '#333',
+    fontWeight: '500',
   },
   clearButton: {
     padding: 2,
@@ -864,64 +1056,89 @@ const styles = StyleSheet.create({
   locationStatus: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 18,
     alignSelf: 'flex-start',
     marginHorizontal: 20,
-    marginTop: 12,
+    marginTop: 4,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.35)',
   },
   locationText: {
-    fontSize: 12,
+    fontSize: 13,
     color: 'white',
     marginLeft: 6,
     marginRight: 8,
-    fontWeight: '500',
+    fontWeight: '600',
+    letterSpacing: 0.2,
   },
   rotating: {
     transform: [{ rotate: '360deg' }],
   },
   categoryChipsContainer: {
-    paddingVertical: 15,
+    paddingVertical: 18,
     paddingHorizontal: 20,
     backgroundColor: 'white',
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-    elevation: 4,
+    borderBottomWidth: 0,
+    elevation: 6,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.12,
+    shadowRadius: 6,
   },
   categoryChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#f8f9fa',
+    backgroundColor: '#F8F9FA',
     paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 25,
+    paddingVertical: 11,
+    borderRadius: 28,
     marginRight: 12,
-    borderWidth: 1,
-    borderColor: '#e9ecef',
+    borderWidth: 1.5,
+    borderColor: '#E9ECEF',
     elevation: 4,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    shadowOpacity: 0.08,
+    shadowRadius: 3,
   },
   selectedCategoryChip: {
     backgroundColor: '#4CAF50',
     borderColor: '#4CAF50',
+    elevation: 6,
+    shadowOpacity: 0.2,
   },
   categoryChipText: {
     fontSize: 14,
     fontWeight: '600',
     color: '#333',
-    marginLeft: 6,
+    marginLeft: 8,
   },
   selectedCategoryChipText: {
     color: 'white',
+  },
+  clearFilterButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FF5722',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 20,
+    marginRight: 10,
+    marginLeft: 20,
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 3,
+  },
+  clearFilterText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: 'white',
+    marginLeft: 6,
   },
   searchResultsCounter: {
     backgroundColor: 'white',
@@ -940,6 +1157,11 @@ const styles = StyleSheet.create({
     color: '#666',
     fontWeight: '500',
     textAlign: 'center',
+  },
+  activeFilterTag: {
+    color: '#FF6B35',
+    fontWeight: '700',
+    fontSize: 13,
   },
   listContainer: {
     padding: 16,
@@ -1198,6 +1420,33 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
     shadowRadius: 8,
+  },
+  browseFoodButtonContainer: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  browseFoodButton: {
+    borderRadius: 12,
+    overflow: 'hidden',
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 5,
+  },
+  browseFoodGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+  },
+  browseFoodText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: 'white',
+    letterSpacing: 0.5,
   },
 });
 

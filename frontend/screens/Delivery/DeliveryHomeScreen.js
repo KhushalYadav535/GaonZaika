@@ -8,11 +8,15 @@ import {
   ScrollView,
   ActivityIndicator,
   Alert,
+  StatusBar
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import apiService from '../../services/apiService';
 import pushNotificationService from '../../services/pushNotificationService';
+import { theme } from '../../utils/theme';
+import { MotiView } from 'moti';
+import { LinearGradient } from 'expo-linear-gradient';
 
 const DeliveryHomeScreen = ({ navigation }) => {
   const [status, setStatus] = useState('Online');
@@ -183,85 +187,120 @@ const DeliveryHomeScreen = ({ navigation }) => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <StatusBar barStyle="light-content" backgroundColor={theme.colors.background} />
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        
         {/* Partner Info */}
-        <View style={styles.partnerCard}>
+        <MotiView 
+          from={{ opacity: 0, translateY: -20 }}
+          animate={{ opacity: 1, translateY: 0 }}
+          style={styles.partnerCard}
+        >
+          <LinearGradient
+            colors={['rgba(200,150,30,0.06)', 'transparent']}
+            style={StyleSheet.absoluteFillObject}
+          />
           <View style={styles.partnerIcon}>
-            <MaterialIcons name="delivery-dining" size={40} color="#2196F3" />
+            <MaterialIcons name="two-wheeler" size={30} color={theme.colors.primary} />
           </View>
           <View style={{ flex: 1 }}>
             <Text style={styles.partnerName}>{deliveryPerson.name}</Text>
             <Text style={styles.partnerVehicle}>
-              Vehicle: {deliveryPerson.vehicleDetails?.number || 'N/A'}
+              <MaterialIcons name="directions-car" size={12} color={theme.colors.primary} /> {deliveryPerson.vehicleDetails?.number || 'N/A'}
             </Text>
             <View style={styles.statusRow}>
-              <View style={[styles.statusDot, { backgroundColor: status === 'Online' ? '#4CAF50' : '#f44336' }]} />
-              <Text style={[styles.statusText, { color: status === 'Online' ? '#4CAF50' : '#f44336' }]}>{status}</Text>
+              <View style={[styles.statusDot, { backgroundColor: status === 'Online' ? theme.colors.success : theme.colors.error }]} />
+              <Text style={[styles.statusText, { color: status === 'Online' ? theme.colors.success : theme.colors.error }]}>{status.toUpperCase()}</Text>
             </View>
           </View>
-        </View>
+        </MotiView>
 
-        {/* Today's Summary */}
-        <View style={styles.summaryCard}>
-          <Text style={styles.summaryTitle}>Today's Summary</Text>
-          <View style={styles.summaryRow}>
-            <View style={styles.summaryItem}>
-              <MaterialIcons name="local-shipping" size={28} color="#2196F3" />
-              <Text style={styles.summaryNumber}>{stats.todayDeliveries}</Text>
-              <Text style={styles.summaryLabel}>Total Deliveries</Text>
+        <MotiView from={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 100 }}>
+          <LinearGradient
+            colors={[theme.colors.surface, theme.colors.surfaceVariant]}
+            style={styles.earningsCard}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <View style={{ backgroundColor: 'rgba(212, 175, 55, 0.1)', padding: 12, borderRadius: 16 }}>
+                <MaterialIcons name="account-balance-wallet" size={28} color={theme.colors.primary} />
+              </View>
+              <View style={{ marginLeft: 16 }}>
+                <Text style={styles.earningsLabel}>Your Daily Earnings</Text>
+                <Text style={styles.earningsValue}>₹{stats.earningsToday}</Text>
+              </View>
             </View>
-            <View style={styles.summaryItem}>
-              <MaterialIcons name="pending-actions" size={28} color="#FF9800" />
+          </LinearGradient>
+        </MotiView>
+
+        {/* Today's Analytics */}
+        <Text style={styles.sectionTitle}>Performance</Text>
+        <View style={styles.summaryRow}>
+          <MotiView from={{ opacity: 0, translateY: 20 }} animate={{ opacity: 1, translateY: 0 }} transition={{ delay: 200 }} style={styles.summaryItemWrapper}>
+            <LinearGradient colors={[theme.colors.surface, theme.colors.surfaceVariant]} style={styles.summaryItem}>
+              <MaterialIcons name="local-shipping" size={28} color={theme.colors.primary} />
+              <Text style={styles.summaryNumber}>{stats.todayDeliveries}</Text>
+              <Text style={styles.summaryLabel}>Total</Text>
+            </LinearGradient>
+          </MotiView>
+          <MotiView from={{ opacity: 0, translateY: 20 }} animate={{ opacity: 1, translateY: 0 }} transition={{ delay: 300 }} style={styles.summaryItemWrapper}>
+            <LinearGradient colors={[theme.colors.surface, theme.colors.surfaceVariant]} style={styles.summaryItem}>
+              <MaterialIcons name="pending-actions" size={28} color="#2196F3" />
               <Text style={styles.summaryNumber}>{stats.pendingDeliveries}</Text>
               <Text style={styles.summaryLabel}>Pending</Text>
-            </View>
-            <View style={styles.summaryItem}>
-              <MaterialIcons name="check-circle" size={28} color="#4CAF50" />
+            </LinearGradient>
+          </MotiView>
+          <MotiView from={{ opacity: 0, translateY: 20 }} animate={{ opacity: 1, translateY: 0 }} transition={{ delay: 400 }} style={styles.summaryItemWrapper}>
+            <LinearGradient colors={[theme.colors.surface, theme.colors.surfaceVariant]} style={styles.summaryItem}>
+              <MaterialIcons name="check-circle" size={28} color={theme.colors.success} />
               <Text style={styles.summaryNumber}>{stats.completedDeliveries}</Text>
-              <Text style={styles.summaryLabel}>Completed</Text>
-            </View>
-          </View>
-        </View>
-
-        {/* Earnings */}
-        <View style={styles.earningsCard}>
-          <MaterialIcons name="account-balance-wallet" size={32} color="#388E3C" />
-          <View style={{ marginLeft: 16 }}>
-            <Text style={styles.earningsLabel}>Earnings Today</Text>
-            <Text style={styles.earningsValue}>₹{stats.earningsToday}</Text>
-          </View>
+              <Text style={styles.summaryLabel}>Done</Text>
+            </LinearGradient>
+          </MotiView>
         </View>
 
         {/* Quick Actions */}
-        <View style={styles.actionsRow}>
+        <Text style={styles.sectionTitle}>Action Center</Text>
+        <MotiView from={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 500 }} style={styles.actionsRow}>
           <TouchableOpacity
-            style={styles.actionButton}
+            style={{ flex: 1, marginRight: 8 }}
+            activeOpacity={0.8}
             onPress={() => {
               setHasNewOrders(false);
               navigation.navigate('Orders');
             }}
           >
-            <MaterialIcons name="list-alt" size={24} color="#fff" />
-            <Text style={styles.actionText}>View Orders</Text>
-            {hasNewOrders && (
-              <View style={styles.notificationBadge}>
-                <Text style={styles.notificationText}>!</Text>
-              </View>
-            )}
+            <LinearGradient colors={['rgba(212,175,55,0.2)', 'rgba(212,175,55,0.05)']} style={styles.actionButton}>
+              <MaterialIcons name="list-alt" size={24} color={theme.colors.primary} />
+              <Text style={styles.actionText}>Active Tasks</Text>
+              {hasNewOrders && (
+                <View style={styles.notificationBadge}>
+                  <Text style={styles.notificationText}>!</Text>
+                </View>
+              )}
+            </LinearGradient>
           </TouchableOpacity>
+
           <TouchableOpacity
-            style={[styles.actionButton, { backgroundColor: status === 'Online' ? '#f44336' : '#4CAF50' }]}
+            style={{ flex: 1, marginLeft: 8 }}
+            activeOpacity={0.8}
             onPress={toggleStatus}
             disabled={statusLoading}
           >
-            {statusLoading ? (
-              <ActivityIndicator size="small" color="#fff" />
-            ) : (
-              <MaterialIcons name={status === 'Online' ? 'toggle-off' : 'toggle-on'} size={24} color="#fff" />
-            )}
-            <Text style={styles.actionText}>{status === 'Online' ? 'Go Offline' : 'Go Online'}</Text>
+            <LinearGradient 
+              colors={status === 'Online' ? ['rgba(244,67,54,0.3)', 'rgba(244,67,54,0.1)'] : [theme.colors.primary, '#B38E22']} 
+              style={[styles.actionButton, { borderColor: status === 'Online' ? theme.colors.error : theme.colors.primary }]}
+            >
+              {statusLoading ? (
+                <ActivityIndicator size="small" color={status === 'Online' ? theme.colors.error : theme.colors.background} />
+              ) : (
+                <MaterialIcons name={status === 'Online' ? 'power-settings-new' : 'power-settings-new'} size={24} color={status === 'Online' ? theme.colors.error : theme.colors.background} />
+              )}
+              <Text style={[styles.actionText, { color: status === 'Online' ? theme.colors.error : theme.colors.background }]}>
+                {status === 'Online' ? 'GO OFFLINE' : 'GO ONLINE'}
+              </Text>
+            </LinearGradient>
           </TouchableOpacity>
-        </View>
+        </MotiView>
       </ScrollView>
     </SafeAreaView>
   );
@@ -270,7 +309,7 @@ const DeliveryHomeScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: theme.colors.background,
   },
   loadingContainer: {
     flex: 1,
@@ -279,159 +318,163 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     fontSize: 16,
-    color: '#666',
+    color: theme.colors.textSecondary,
     marginTop: 10,
+    letterSpacing: 2,
+    textTransform: 'uppercase',
   },
   scrollContent: {
     padding: 20,
+    paddingTop: 60,
     paddingBottom: 40,
   },
   partnerCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'white',
+    backgroundColor: theme.colors.surface,
     borderRadius: 16,
     padding: 20,
-    marginBottom: 20,
-    elevation: 2,
+    marginBottom: 24,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    elevation: 8,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.08,
-    shadowRadius: 2,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.5,
+    shadowRadius: 10,
+    overflow: 'hidden'
   },
   partnerIcon: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: '#E3F2FD',
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: 'rgba(212, 175, 55, 0.1)',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 16,
   },
   partnerName: {
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: 'bold',
-    color: '#333',
+    color: theme.colors.text,
     marginBottom: 4,
   },
   partnerVehicle: {
-    fontSize: 15,
-    color: '#2196F3',
+    fontSize: 13,
+    color: theme.colors.textSecondary,
     fontWeight: '600',
-    marginBottom: 4,
+    marginBottom: 8,
   },
   statusRow: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   statusDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
     marginRight: 6,
   },
   statusText: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: 'bold',
-  },
-  summaryCard: {
-    backgroundColor: 'white',
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 20,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.08,
-    shadowRadius: 2,
-  },
-  summaryTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 16,
-  },
-  summaryRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  summaryItem: {
-    alignItems: 'center',
-    flex: 1,
-  },
-  summaryNumber: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#333',
-    marginTop: 6,
-  },
-  summaryLabel: {
-    fontSize: 13,
-    color: '#888',
-    marginTop: 2,
+    letterSpacing: 1,
   },
   earningsCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'white',
+    justifyContent: 'space-between',
     borderRadius: 16,
     padding: 20,
-    marginBottom: 24,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.08,
-    shadowRadius: 2,
+    marginBottom: 32,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    elevation: 5,
   },
   earningsLabel: {
-    fontSize: 15,
-    color: '#666',
+    fontSize: 14,
+    color: theme.colors.textSecondary,
+    marginBottom: 4,
   },
   earningsValue: {
-    fontSize: 22,
+    fontSize: 28,
+    fontWeight: '900',
+    color: theme.colors.text,
+  },
+  sectionTitle: {
+    fontSize: 18,
     fontWeight: 'bold',
-    color: '#388E3C',
-    marginTop: 2,
+    color: theme.colors.text,
+    marginBottom: 16,
+    letterSpacing: 0.5,
+  },
+  summaryRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 32,
+  },
+  summaryItemWrapper: {
+    flex: 1,
+    marginHorizontal: 4,
+  },
+  summaryItem: {
+    alignItems: 'center',
+    paddingVertical: 20,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  summaryNumber: {
+    fontSize: 24,
+    fontWeight: '900',
+    color: theme.colors.text,
+    marginTop: 12,
+    marginBottom: 4,
+  },
+  summaryLabel: {
+    fontSize: 12,
+    color: theme.colors.textSecondary,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
   },
   actionsRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 8,
   },
   actionButton: {
-    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#2196F3',
-    borderRadius: 12,
-    paddingVertical: 14,
-    marginHorizontal: 6,
-    elevation: 2,
+    borderRadius: 16,
+    paddingVertical: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(212,175,55,0.3)',
   },
   actionText: {
-    color: 'white',
-    fontSize: 15,
+    color: theme.colors.primary,
+    fontSize: 13,
     fontWeight: 'bold',
     marginLeft: 8,
+    letterSpacing: 1,
   },
   notificationBadge: {
     position: 'absolute',
-    top: -8,
-    right: -8,
-    backgroundColor: '#FF5722',
+    top: -6,
+    right: -6,
+    backgroundColor: theme.colors.error,
     borderRadius: 10,
     width: 20,
     height: 20,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: 'white',
+    borderColor: theme.colors.surface,
+    elevation: 4,
   },
   notificationText: {
     color: 'white',
     fontSize: 12,
-    fontWeight: 'bold',
+    fontWeight: '900',
   },
 });
 

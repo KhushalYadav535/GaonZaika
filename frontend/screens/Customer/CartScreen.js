@@ -14,11 +14,30 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import apiService from '../../services/apiService';
 
 const CartScreen = ({ route, navigation }) => {
-  const { restaurant, cart, deliveryInfo } = route.params;
+  const { restaurant, cart, deliveryInfo } = route.params || {};
+  
+  // Fallback for missing restaurant
+  if (!restaurant) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.errorContainer}>
+          <MaterialIcons name="error-outline" size={48} color="#FF5252" />
+          <Text style={styles.errorText}>Restaurant information not found</Text>
+          <TouchableOpacity 
+            style={styles.backButton}
+            onPress={() => navigation.goBack()}
+          >
+            <Text style={styles.backButtonText}>Go Back</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   const [customerInfo, setCustomerInfo] = useState({
     name: deliveryInfo?.name || '',
     phone: deliveryInfo?.phone || '',
-    address: deliveryInfo?.address || '',
+    address: `${deliveryInfo?.houseNumber || ''} ${deliveryInfo?.areaOrVillage || ''}`.trim(),
   });
   const [loading, setLoading] = useState(false);
 
@@ -255,6 +274,31 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f5f5f5',
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#f5f5f5',
+    padding: 20,
+  },
+  errorText: {
+    fontSize: 16,
+    color: '#FF5252',
+    marginTop: 16,
+    textAlign: 'center',
+  },
+  backButton: {
+    marginTop: 24,
+    paddingHorizontal: 32,
+    paddingVertical: 12,
+    backgroundColor: '#FF5252',
+    borderRadius: 8,
+  },
+  backButtonText: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: '600',
   },
   header: {
     backgroundColor: '#4CAF50',

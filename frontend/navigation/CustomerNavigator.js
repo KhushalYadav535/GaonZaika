@@ -7,6 +7,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 // Import screens
 import CustomerAuthScreen from '../screens/Customer/CustomerAuthScreen';
 import CustomerHomeScreen from '../screens/Customer/CustomerHomeScreen';
+import FoodBrowseScreen from '../screens/Customer/FoodBrowseScreen';
+import FoodSearchResultsScreen from '../screens/Customer/FoodSearchResultsScreen';
 import RestaurantMenuScreen from '../screens/Customer/RestaurantMenuScreen';
 import CartScreen from '../screens/Customer/CartScreen';
 import DeliveryInfoScreen from '../screens/Customer/DeliveryInfoScreen';
@@ -91,6 +93,8 @@ const CustomerNavigator = ({ route }) => {
     >
       <Stack.Screen name="CustomerAuth" component={CustomerAuthScreen} />
       <Stack.Screen name="CustomerTabs" component={CustomerTabs} />
+      <Stack.Screen name="FoodBrowse" component={FoodBrowseScreen} />
+      <Stack.Screen name="FoodSearchResults" component={FoodSearchResultsScreen} />
       <Stack.Screen name="RestaurantMenu" component={RestaurantMenuScreen} />
       <Stack.Screen name="DeliveryInfo" component={DeliveryInfoScreen} />
       <Stack.Screen name="Cart" component={CartScreen} />

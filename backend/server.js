@@ -4,9 +4,21 @@ const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
 const rateLimit = require('express-rate-limit');
+const http = require('http');
+const socketIo = require('socket.io');
 require('dotenv').config();
 
 const app = express();
+const server = http.createServer(app);
+
+// Initialize Socket.io
+const io = socketIo(server, {
+  cors: {
+    origin: '*', // Allow all origins for the mobile app
+    methods: ['GET', 'POST', 'PATCH', 'PUT']
+  }
+});
+app.set('io', io);
 
 // Trust proxy for rate limiting behind load balancers/proxies
 app.set('trust proxy', 1);
@@ -20,6 +32,7 @@ const vendorRoutes = require('./routes/vendors');
 const deliveryRoutes = require('./routes/delivery');
 const adminRoutes = require('./routes/admin');
 const pushNotificationRoutes = require('./routes/pushNotifications');
+const foodRoutes = require('./routes/foods');
 
 // Middleware
 app.use(helmet());
@@ -132,6 +145,11 @@ app.get('/', (req, res) => {
         url: '/api/push-notifications',
         methods: ['POST'],
         description: 'Push notification management'
+      },
+      foods: {
+        url: '/api/foods',
+        methods: ['GET'],
+        description: 'Food browsing by categories, search, and restaurant listings'
       }
     },
     documentation: 'This is a mobile app backend API. Use the Gaon Zaika mobile app to interact with the platform.',
@@ -153,6 +171,7 @@ app.use('/api/vendor', vendorRoutes);
 app.use('/api/delivery', deliveryRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/push-notifications', pushNotificationRoutes);
+app.use('/api/foods', foodRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {
@@ -197,11 +216,30 @@ const connectDB = async () => {
   }
 };
 
+// Socket connection handling
+io.on('connection', (socket) => {
+  console.log(`🔌 New client connected: ${socket.id}`);
+  
+  socket.on('join_order', (orderId) => {
+    socket.join(`order_${orderId}`);
+    console.log(`Client joined order room: order_${orderId}`);
+  });
+
+  socket.on('join_vendor', (vendorId) => {
+    socket.join(`vendor_${vendorId}`);
+    console.log(`Vendor joined room: vendor_${vendorId}`);
+  });
+
+  socket.on('disconnect', () => {
+    console.log(`Client disconnected: ${socket.id}`);
+  });
+});
+
 // Start server
 const PORT = process.env.PORT || 3000;
 const startServer = async () => {
   await connectDB();
-  app.listen(PORT, () => {
+  server.listen(PORT, () => {
     console.log(`🚀 Gaon Zaika API server running on port ${PORT}`);
     console.log(`📱 Environment: ${process.env.NODE_ENV || 'development'}`);
     console.log(`🔗 Health check: http://localhost:${PORT}/health`);
@@ -212,4 +250,4 @@ const startServer = async () => {
 
 startServer();
 
-module.exports = app; 
+module.exports = { app, server }; 

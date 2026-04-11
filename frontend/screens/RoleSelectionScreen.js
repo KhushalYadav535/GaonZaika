@@ -6,32 +6,36 @@ import {
   TouchableOpacity,
   SafeAreaView,
   Image,
+  StatusBar
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { theme } from '../utils/theme';
+import { MotiView, MotiText } from 'moti';
+import { LinearGradient } from 'expo-linear-gradient';
 
 const RoleSelectionScreen = ({ navigation }) => {
   const roles = [
     {
       id: 'customer',
       title: 'Customer',
-      icon: 'person',
-      description: 'Order food from restaurants',
-      color: '#4CAF50',
+      icon: 'restaurant-menu',
+      description: 'Order premium food from top restaurants',
+      color: theme.colors.primary,
     },
     {
       id: 'vendor',
       title: 'Vendor',
-      icon: 'restaurant',
-      description: 'Manage your restaurant',
-      color: '#FF9800',
+      icon: 'storefront',
+      description: 'Manage your restaurant operations in real-time',
+      color: theme.colors.primary,
     },
     {
       id: 'delivery',
       title: 'Delivery',
       icon: 'delivery-dining',
-      description: 'Deliver orders to customers',
-      color: '#2196F3',
+      description: 'Lightning fast deliveries around the city',
+      color: theme.colors.primary,
     },
   ];
 
@@ -56,39 +60,66 @@ const RoleSelectionScreen = ({ navigation }) => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
+      <StatusBar barStyle="light-content" backgroundColor={theme.colors.background} />
+      
+      <MotiView 
+        from={{ opacity: 0, translateY: -20 }}
+        animate={{ opacity: 1, translateY: 0 }}
+        transition={{ type: 'timing', duration: 1000 }}
+        style={styles.header}
+      >
+        <LinearGradient
+          colors={[theme.colors.primary, '#B38E22']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={{ paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, marginBottom: 16 }}
+        >
+          <Text style={{ color: theme.colors.background, fontWeight: 'bold', fontSize: 14, letterSpacing: 2 }}>EST. 2026</Text>
+        </LinearGradient>
         <Text style={styles.title}>Gaon Zaika</Text>
-        <Text style={styles.subtitle}>Village Food Delivery</Text>
-        <Text style={styles.description}>
-          Select your role to continue
-        </Text>
-      </View>
+        <Text style={styles.subtitle}>Premium Village Dining</Text>
+      </MotiView>
 
       <View style={styles.rolesContainer}>
-        {roles.map((role) => (
-          <TouchableOpacity
+        {roles.map((role, index) => (
+          <MotiView
             key={role.id}
-            style={[styles.roleCard, { borderColor: role.color }]}
-            onPress={() => handleRoleSelect(role.id)}
-            activeOpacity={0.7}
+            from={{ opacity: 0, translateX: -50 }}
+            animate={{ opacity: 1, translateX: 0 }}
+            transition={{ type: 'spring', damping: 15, delay: index * 200 }}
           >
-            <View style={[styles.iconContainer, { backgroundColor: role.color }]}>
-              <MaterialIcons name={role.icon} size={32} color="white" />
-            </View>
-            <View style={styles.roleInfo}>
-              <Text style={styles.roleTitle}>{role.title}</Text>
-              <Text style={styles.roleDescription}>{role.description}</Text>
-            </View>
-            <MaterialIcons name="chevron-right" size={24} color="#666" />
-          </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.roleCard}
+              onPress={() => handleRoleSelect(role.id)}
+              activeOpacity={0.8}
+            >
+              <LinearGradient
+                colors={['rgba(255,255,255,0.05)', 'transparent']}
+                style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, borderRadius: 16 }}
+              />
+              <View style={styles.iconContainer}>
+                <MaterialIcons name={role.icon} size={30} color={theme.colors.primary} />
+              </View>
+              <View style={styles.roleInfo}>
+                <Text style={styles.roleTitle}>{role.title}</Text>
+                <Text style={styles.roleDescription}>{role.description}</Text>
+              </View>
+              <MaterialIcons name="chevron-right" size={24} color={theme.colors.primary} />
+            </TouchableOpacity>
+          </MotiView>
         ))}
       </View>
 
-      <View style={styles.footer}>
+      <MotiView 
+        from={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 1000, duration: 1000 }}
+        style={styles.footer}
+      >
         <Text style={styles.footerText}>
-          Choose your role to access the app
+          Exclusive culinary experience awaits.
         </Text>
-      </View>
+      </MotiView>
     </SafeAreaView>
   );
 };
@@ -96,80 +127,83 @@ const RoleSelectionScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: theme.colors.background,
   },
   header: {
     alignItems: 'center',
-    paddingTop: 60,
+    paddingTop: 80,
     paddingBottom: 40,
-    backgroundColor: 'white',
+    backgroundColor: theme.colors.background,
   },
   title: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: '#333',
+    fontSize: 42,
+    fontWeight: '900',
+    color: theme.colors.text,
     marginBottom: 8,
+    letterSpacing: 1.5,
   },
   subtitle: {
     fontSize: 16,
-    color: '#666',
-    marginBottom: 16,
-  },
-  description: {
-    fontSize: 14,
-    color: '#888',
+    color: theme.colors.textSecondary,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
   },
   rolesContainer: {
     flex: 1,
     paddingHorizontal: 20,
-    paddingTop: 20,
+    paddingTop: 10,
   },
   roleCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'white',
-    padding: 20,
-    marginBottom: 16,
-    borderRadius: 12,
-    borderWidth: 2,
+    backgroundColor: theme.colors.surface,
+    padding: 24,
+    marginBottom: 20,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
     shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.5,
+    shadowRadius: 15,
+    elevation: 10,
   },
   iconContainer: {
     width: 60,
     height: 60,
     borderRadius: 30,
+    backgroundColor: 'rgba(212, 175, 55, 0.1)',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 16,
+    marginRight: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(212, 175, 55, 0.3)',
   },
   roleInfo: {
     flex: 1,
   },
   roleTitle: {
-    fontSize: 18,
+    fontSize: 22,
     fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 4,
+    color: theme.colors.text,
+    marginBottom: 6,
+    letterSpacing: 0.5,
   },
   roleDescription: {
     fontSize: 14,
-    color: '#666',
+    color: theme.colors.textSecondary,
+    lineHeight: 20,
   },
   footer: {
-    padding: 20,
+    padding: 30,
     alignItems: 'center',
   },
   footerText: {
     fontSize: 12,
-    color: '#888',
+    color: theme.colors.textSecondary,
     textAlign: 'center',
+    letterSpacing: 1,
+    textTransform: 'uppercase',
   },
 });
 

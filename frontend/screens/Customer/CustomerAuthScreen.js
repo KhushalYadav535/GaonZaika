@@ -9,12 +9,17 @@ import {
   Alert,
   Animated,
   Dimensions,
+  StatusBar
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import apiService from '../../services/apiService';
 import { navigateAfterLogin } from '../../utils/navigationUtils';
 import { initializeNotificationsAfterLogin } from '../../utils/notificationUtils';
+import { theme } from '../../utils/theme';
+import { MotiView } from 'moti';
+import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
 
 const { width } = Dimensions.get('window');
 
@@ -254,48 +259,66 @@ const CustomerAuthScreen = ({ navigation }) => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <MaterialIcons name="restaurant" size={60} color="#4CAF50" />
+      <StatusBar barStyle="light-content" backgroundColor={theme.colors.background} />
+      
+      <MotiView 
+        from={{ opacity: 0, translateY: -30 }}
+        animate={{ opacity: 1, translateY: 0 }}
+        transition={{ type: 'timing', duration: 1000 }}
+        style={styles.header}
+      >
+        <LinearGradient
+          colors={[theme.colors.primary, '#B38E22']}
+          style={{ width: 80, height: 80, borderRadius: 40, justifyContent: 'center', alignItems: 'center', marginBottom: 16 }}
+        >
+          <MaterialIcons name="restaurant" size={40} color={theme.colors.background} />
+        </LinearGradient>
         <Text style={styles.appName}>Gaon Zaika</Text>
-        <Text style={styles.slogan}>Swad Gaon Ka</Text>
-      </View>
+        <Text style={styles.slogan}>Premium Dining Experience</Text>
+      </MotiView>
 
-      <View style={styles.authContainer}>
+      <MotiView 
+        from={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ delay: 300, type: 'timing', duration: 800 }}
+        style={styles.authContainer}
+      >
         <Text style={styles.authTitle}>
-          {isLogin ? 'Welcome Back!' : 'Create Account'}
+          {isLogin ? 'Welcome Back.' : 'Join the Elite.'}
         </Text>
         <Text style={styles.authSubtitle}>
           {isLogin 
-            ? 'Sign in with your phone number' 
-            : 'Join us to start your food journey'
+            ? 'Sign in to access your luxury dining profile' 
+            : 'Register to unlock exclusive gourmet access'
           }
         </Text>
 
         <View style={styles.form}>
           {!isLogin && !otpSent && (
-            <View style={styles.inputContainer}>
-              <MaterialIcons name="person" size={20} color="#666" style={styles.inputIcon} />
+            <BlurView intensity={20} tint="dark" style={styles.inputContainer}>
+              <MaterialIcons name="person" size={20} color={theme.colors.primary} style={styles.inputIcon} />
               <TextInput
                 style={styles.input}
                 placeholder="Full Name"
+                placeholderTextColor={theme.colors.textSecondary}
                 value={name}
                 onChangeText={setName}
                 autoCapitalize="words"
                 editable={!loading}
               />
-            </View>
+            </BlurView>
           )}
 
           {!otpSent && (
-            <View style={styles.inputContainer}>
-              <MaterialIcons name="phone" size={20} color="#666" style={styles.inputIcon} />
+            <BlurView intensity={20} tint="dark" style={styles.inputContainer}>
+              <MaterialIcons name="phone" size={20} color={theme.colors.primary} style={styles.inputIcon} />
               <Text style={styles.countryCode}>+91</Text>
               <TextInput
                 style={styles.phoneInput}
                 placeholder="Enter your phone number"
+                placeholderTextColor={theme.colors.textSecondary}
                 value={phone.startsWith('+91') ? phone.substring(3) : phone}
                 onChangeText={(text) => {
-                  // Remove +91 if user types it, we'll add it automatically
                   const cleaned = text.replace(/^\+91/, '').replace(/\D/g, '');
                   setPhone('+91' + cleaned);
                 }}
@@ -303,12 +326,12 @@ const CustomerAuthScreen = ({ navigation }) => {
                 maxLength={10}
                 editable={!loading}
               />
-            </View>
+            </BlurView>
           )}
 
           {otpSent && (
-            <View style={styles.otpContainer}>
-              <Text style={styles.otpLabel}>Enter OTP sent to {phone}</Text>
+            <MotiView from={{ opacity: 0 }} animate={{ opacity: 1 }} style={styles.otpContainer}>
+              <Text style={styles.otpLabel}>Enter Secure Code sent to {phone}</Text>
               <View style={styles.otpInputs}>
                 {otp.map((digit, index) => (
                   <TextInput
@@ -333,27 +356,34 @@ const CustomerAuthScreen = ({ navigation }) => {
               >
                 <Text style={[styles.resendText, resendTimer > 0 && styles.resendTextDisabled]}>
                   {resendTimer > 0 
-                    ? `Resend OTP in ${resendTimer}s` 
-                    : 'Resend OTP'
+                    ? `Resend Code in ${resendTimer}s` 
+                    : 'Resend Code'
                   }
                 </Text>
               </TouchableOpacity>
-            </View>
+            </MotiView>
           )}
 
           <TouchableOpacity
             style={[styles.authButton, loading && styles.disabledButton]}
             onPress={otpSent ? handleVerifyOTP : handleSendOTP}
             disabled={loading}
+            activeOpacity={0.8}
           >
+            <LinearGradient
+              colors={loading ? ['#333', '#444'] : [theme.colors.primary, '#B38E22']}
+              start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+              style={StyleSheet.absoluteFillObject}
+              style={[StyleSheet.absoluteFillObject, { borderRadius: 12 }]}
+            />
             <Text style={styles.authButtonText}>
               {loading 
-                ? 'Please wait...' 
+                ? 'Processing...' 
                 : otpSent 
-                  ? 'Verify OTP' 
+                  ? 'VERIFY ACCESS' 
                   : isLogin 
-                    ? 'Send OTP' 
-                    : 'Send OTP'
+                    ? 'PROCEED' 
+                    : 'JOIN NOW'
               }
             </Text>
           </TouchableOpacity>
@@ -382,7 +412,7 @@ const CustomerAuthScreen = ({ navigation }) => {
             </Text>
           </TouchableOpacity>
         </View>
-      </View>
+      </MotiView>
     </SafeAreaView>
   );
 };
@@ -390,41 +420,44 @@ const CustomerAuthScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: theme.colors.background,
   },
   header: {
     alignItems: 'center',
-    paddingTop: 60,
-    paddingBottom: 40,
+    paddingTop: 80,
+    paddingBottom: 20,
   },
   appName: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#2E7D32',
-    marginTop: 16,
+    fontSize: 34,
+    fontWeight: '900',
+    color: theme.colors.text,
+    marginTop: 8,
     marginBottom: 4,
+    letterSpacing: 1.5,
   },
   slogan: {
-    fontSize: 16,
-    color: '#FF9800',
+    fontSize: 14,
+    color: theme.colors.primary,
     fontWeight: '600',
+    letterSpacing: 2,
+    textTransform: 'uppercase',
   },
   authContainer: {
     flex: 1,
     paddingHorizontal: 30,
   },
   authTitle: {
-    fontSize: 24,
+    fontSize: 28,
     fontWeight: 'bold',
-    color: '#333',
+    color: theme.colors.text,
     marginBottom: 8,
     textAlign: 'center',
   },
   authSubtitle: {
     fontSize: 14,
-    color: '#666',
+    color: theme.colors.textSecondary,
     textAlign: 'center',
-    marginBottom: 30,
+    marginBottom: 40,
   },
   form: {
     marginBottom: 30,
@@ -432,43 +465,42 @@ const styles = StyleSheet.create({
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'white',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    marginBottom: 16,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
+    backgroundColor: theme.colors.surface,
+    borderRadius: 16,
+    paddingHorizontal: 20,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    height: 65,
+    overflow: 'hidden'
   },
   inputIcon: {
-    marginRight: 12,
+    marginRight: 15,
   },
   countryCode: {
-    fontSize: 16,
-    color: '#333',
-    fontWeight: '600',
-    marginRight: 8,
+    fontSize: 18,
+    color: theme.colors.text,
+    fontWeight: '700',
+    marginRight: 10,
   },
   phoneInput: {
     flex: 1,
-    fontSize: 16,
-    paddingVertical: 16,
-    color: '#333',
+    fontSize: 18,
+    color: theme.colors.text,
+    fontWeight: '600',
   },
   input: {
     flex: 1,
-    fontSize: 16,
-    paddingVertical: 16,
-    color: '#333',
+    fontSize: 18,
+    color: theme.colors.text,
+    fontWeight: '500',
   },
   otpContainer: {
-    marginBottom: 20,
+    marginBottom: 30,
   },
   otpLabel: {
     fontSize: 14,
-    color: '#666',
+    color: theme.colors.textSecondary,
     textAlign: 'center',
     marginBottom: 20,
   },
@@ -479,14 +511,14 @@ const styles = StyleSheet.create({
   },
   otpInput: {
     width: 45,
-    height: 55,
-    borderWidth: 2,
-    borderColor: '#4CAF50',
+    height: 60,
+    borderWidth: 1,
+    borderColor: theme.colors.primary,
     borderRadius: 12,
     fontSize: 24,
     textAlign: 'center',
-    backgroundColor: 'white',
-    color: '#333',
+    backgroundColor: theme.colors.surface,
+    color: theme.colors.text,
     fontWeight: 'bold',
   },
   resendButton: {
@@ -495,52 +527,59 @@ const styles = StyleSheet.create({
   },
   resendText: {
     fontSize: 14,
-    color: '#4CAF50',
+    color: theme.colors.primary,
     fontWeight: '600',
   },
   resendTextDisabled: {
-    color: '#999',
+    color: theme.colors.textSecondary,
   },
   authButton: {
-    backgroundColor: '#4CAF50',
+    height: 60,
     borderRadius: 12,
-    paddingVertical: 16,
+    justifyContent: 'center',
     alignItems: 'center',
     marginTop: 10,
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
+    elevation: 8,
+    shadowColor: theme.colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
   },
   disabledButton: {
-    backgroundColor: '#ccc',
+    backgroundColor: '#333',
+    elevation: 0,
+    shadowOpacity: 0,
   },
   authButtonText: {
-    color: 'white',
+    color: theme.colors.background,
     fontSize: 16,
     fontWeight: 'bold',
+    letterSpacing: 2,
+    zIndex: 1,
   },
   changeNumberButton: {
     alignItems: 'center',
-    marginTop: 15,
+    marginTop: 20,
   },
   changeNumberText: {
     fontSize: 14,
-    color: '#666',
+    color: theme.colors.textSecondary,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.textSecondary,
   },
   switchContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
+    marginTop: 20,
   },
   switchText: {
     fontSize: 14,
-    color: '#666',
+    color: theme.colors.textSecondary,
   },
   switchButton: {
     fontSize: 14,
-    color: '#4CAF50',
+    color: theme.colors.primary,
     fontWeight: 'bold',
   },
 });

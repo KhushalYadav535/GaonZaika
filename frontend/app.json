@@ -17,7 +17,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.gaonzaika.app",
-      "buildNumber": "8",
+      "buildNumber": "10",
       "infoPlist": {
         "NSCameraUsageDescription": "This app uses camera to take photos of food items",
         "NSLocationWhenInUseUsageDescription": "This app uses location to find nearby restaurants",
@@ -30,7 +30,7 @@
         "backgroundColor": "#FFFFFF"
       },
       "package": "com.gaonzaika.app",
-      "versionCode": 8,
+      "versionCode": 10,
       "permissions": [
         "android.permission.CAMERA",
         "android.permission.ACCESS_FINE_LOCATION",

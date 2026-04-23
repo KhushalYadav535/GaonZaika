@@ -566,6 +566,14 @@ exports.sendCustomerLoginOTP = async (req, res) => {
       formattedPhone = '+91' + formattedPhone.replace(/^0+/, '');
     }
 
+    // Google Play Store Bypass
+    if (formattedPhone === '+919005754137' || formattedPhone === '9005754137') {
+      return res.json({
+        success: true,
+        message: 'OTP sent to your phone number'
+      });
+    }
+
     // Find customer by phone
     const customer = await Customer.findOne({ phone: formattedPhone, isActive: true });
 
@@ -626,6 +634,41 @@ exports.verifyCustomerLoginOTP = async (req, res) => {
     let formattedPhone = phone.trim();
     if (!formattedPhone.startsWith('+')) {
       formattedPhone = '+91' + formattedPhone.replace(/^0+/, '');
+    }
+
+    // Google Play Store test user bypass
+    if ((formattedPhone === '+919005754137' || formattedPhone === '9005754137') && otp === '123456') {
+      let customer = await Customer.findOne({ phone: formattedPhone });
+      if (!customer) {
+        customer = new Customer({
+          name: 'PlayStore Reviewer',
+          phone: formattedPhone,
+          email: 'reviewer@gaonzaika.com',
+          password: Math.random().toString(36).slice(-12),
+          isPhoneVerified: true,
+          isActive: true
+        });
+        await customer.save();
+      }
+      
+      await customer.updateLastLogin();
+      
+      const token = generateToken(customer._id, 'customer');
+
+      return res.json({
+        success: true,
+        message: 'Login successful',
+        data: {
+          token,
+          customer: {
+            id: customer._id,
+            name: customer.name,
+            email: customer.email,
+            phone: customer.phone,
+            addresses: customer.addresses
+          }
+        }
+      });
     }
 
     // Find customer
@@ -716,6 +759,14 @@ exports.sendCustomerRegistrationOTP = async (req, res) => {
       formattedPhone = '+91' + formattedPhone.replace(/^0+/, '');
     }
 
+    // Google Play Store Bypass
+    if (formattedPhone === '+919005754137' || formattedPhone === '9005754137') {
+      return res.json({
+        success: true,
+        message: 'OTP sent to your phone number'
+      });
+    }
+
     // Check if customer already exists
     const existingCustomer = await Customer.findOne({ phone: formattedPhone });
 
@@ -781,6 +832,38 @@ exports.verifyCustomerRegistrationOTP = async (req, res) => {
     let formattedPhone = phone.trim();
     if (!formattedPhone.startsWith('+')) {
       formattedPhone = '+91' + formattedPhone.replace(/^0+/, '');
+    }
+
+    // Google Play Store test user bypass
+    if ((formattedPhone === '+919005754137' || formattedPhone === '9005754137') && otp === '123456') {
+      let customer = await Customer.findOne({ phone: formattedPhone });
+      if (!customer) {
+        customer = new Customer({
+          name: 'PlayStore Reviewer',
+          phone: formattedPhone,
+          email: 'reviewer@gaonzaika.com',
+          password: Math.random().toString(36).slice(-12),
+          isPhoneVerified: true,
+          isActive: true
+        });
+        await customer.save();
+      }
+      
+      const token = generateToken(customer._id, 'customer');
+
+      return res.status(201).json({
+        success: true,
+        message: 'Customer registered successfully',
+        data: {
+          token,
+          customer: {
+            id: customer._id,
+            name: customer.name,
+            email: customer.email,
+            phone: customer.phone
+          }
+        }
+      });
     }
 
     // Get stored registration data

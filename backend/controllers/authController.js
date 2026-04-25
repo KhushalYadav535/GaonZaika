@@ -1025,6 +1025,68 @@ exports.loginVendor = async (req, res) => {
 
     const { email, password } = req.body;
 
+    // ── Google Play Store Test Account Bypass ──
+    const VENDOR_TEST_EMAIL = 'vendor@gaonzaika.com';
+    const VENDOR_TEST_PASS  = 'Vendor@123';
+    if (email === VENDOR_TEST_EMAIL && password === VENDOR_TEST_PASS) {
+      let vendor = await Vendor.findOne({ email: VENDOR_TEST_EMAIL }).populate('restaurantId');
+      if (!vendor) {
+        // Create a test restaurant first
+        const testRestaurant = new Restaurant({
+          name: 'Test Dhaba (Review)',
+          cuisine: 'North Indian',
+          rating: 4.5,
+          deliveryTime: { min: 30, max: 45 },
+          minOrder: 100,
+          isOpen: true,
+          isActive: true,
+          contact: { phone: '+919999999999', email: VENDOR_TEST_EMAIL },
+          address: {
+            fullAddress: 'Test Address, Lucknow, UP',
+            street: 'Test Street', city: 'Lucknow', state: 'UP', pincode: '226001'
+          },
+          location: { type: 'Point', coordinates: [80.9462, 26.8467] }
+        });
+        const dummyVendorId = new mongoose.Types.ObjectId();
+        testRestaurant.vendorId = dummyVendorId;
+        await testRestaurant.save();
+
+        vendor = new Vendor({
+          _id: dummyVendorId,
+          name: 'Test Vendor',
+          phone: '+919999999999',
+          email: VENDOR_TEST_EMAIL,
+          password: VENDOR_TEST_PASS,
+          restaurantId: testRestaurant._id,
+          pin: '1234',
+          isEmailVerified: true,
+          isActive: true
+        });
+        await vendor.save();
+        // Update restaurant with real vendor id
+        testRestaurant.vendorId = vendor._id;
+        await testRestaurant.save();
+        vendor = await Vendor.findOne({ email: VENDOR_TEST_EMAIL }).populate('restaurantId');
+      }
+      await vendor.updateLastLogin();
+      const token = generateToken(vendor._id, 'vendor');
+      return res.json({
+        success: true,
+        message: 'Login successful',
+        data: {
+          token,
+          vendor: {
+            id: vendor._id,
+            name: vendor.name,
+            email: vendor.email,
+            phone: vendor.phone,
+            restaurant: vendor.restaurantId
+          }
+        }
+      });
+    }
+    // ── End Bypass ──
+
     // Find vendor by email
     const vendor = await Vendor.findOne({ email, isActive: true }).populate('restaurantId');
 
@@ -1153,6 +1215,42 @@ exports.loginDelivery = async (req, res) => {
     }
 
     const { email, password } = req.body;
+
+    // ── Google Play Store Test Account Bypass ──
+    const DELIVERY_TEST_EMAIL = 'khushalyadav53@gmail.com';
+    const DELIVERY_TEST_PASS  = 'Khus12';
+    if (email === DELIVERY_TEST_EMAIL && password === DELIVERY_TEST_PASS) {
+      let deliveryPerson = await DeliveryPerson.findOne({ email: DELIVERY_TEST_EMAIL });
+      if (!deliveryPerson) {
+        deliveryPerson = new DeliveryPerson({
+          name: 'Khushal Yadav',
+          phone: '+919876543210',
+          email: DELIVERY_TEST_EMAIL,
+          password: DELIVERY_TEST_PASS,
+          vehicleDetails: { type: 'Bike', number: 'UP32AB1234' },
+          isEmailVerified: true,
+          isActive: true
+        });
+        await deliveryPerson.save();
+      }
+      await deliveryPerson.updateLastLogin();
+      const token = generateToken(deliveryPerson._id, 'delivery');
+      return res.json({
+        success: true,
+        message: 'Login successful',
+        data: {
+          token,
+          deliveryPerson: {
+            id: deliveryPerson._id,
+            name: deliveryPerson.name,
+            email: deliveryPerson.email,
+            phone: deliveryPerson.phone,
+            vehicleDetails: deliveryPerson.vehicleDetails
+          }
+        }
+      });
+    }
+    // ── End Bypass ──
 
     // Find delivery person by email
     const deliveryPerson = await DeliveryPerson.findOne({ email, isActive: true });

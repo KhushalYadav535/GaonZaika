@@ -8,6 +8,15 @@ const jwt = require('jsonwebtoken');
 const { validationResult } = require('express-validator');
 const { sendOTP, sendVerificationOTP, sendPasswordResetOTP } = require('../utils/emailService');
 const { sendLoginOTP, sendRegistrationOTP } = require('../utils/smsService');
+const { formatIndianPhone, buildPhoneQuery } = require('../utils/phoneUtils');
+
+const respondSmsFailure = (res, smsResult) => {
+  return res.status(500).json({
+    success: false,
+    message: smsResult.userMessage || 'Failed to send OTP. Please try again.',
+    errorCode: smsResult.errorCode
+  });
+};
 
 // Generate JWT Token
 const generateToken = (userId, role) => {
@@ -560,29 +569,37 @@ exports.sendCustomerLoginOTP = async (req, res) => {
       });
     }
 
-    // Format phone number (add country code if not present)
-    let formattedPhone = phone.trim();
-    if (!formattedPhone.startsWith('+')) {
-      formattedPhone = '+91' + formattedPhone.replace(/^0+/, '');
+    const formattedPhone = formatIndianPhone(phone);
+    if (!formattedPhone) {
+      return res.status(400).json({
+        success: false,
+        message: 'Valid 10-digit Indian mobile number enter karein.'
+      });
     }
 
     // Google Play Store Bypass
-    if (formattedPhone === '+919005754137' || formattedPhone === '9005754137') {
+    if (formattedPhone === '+919005754137') {
       return res.json({
         success: true,
         message: 'OTP sent to your phone number'
       });
     }
 
-    // Find customer by phone
-    const customer = await Customer.findOne({ phone: formattedPhone, isActive: true });
+    // Find customer (supports +91 / 91 / 10-digit stored formats)
+    const phoneQuery = buildPhoneQuery(formattedPhone);
+    const customer = await Customer.findOne({ ...phoneQuery, isActive: true });
 
     if (!customer) {
       // For security, don't reveal if phone exists
       return res.json({
         success: true,
-        message: 'If this phone number is registered, an OTP has been sent.'
+        message: 'Agar yeh number registered hai to OTP bhej diya gaya hai. Naye user Register tab use karein.'
       });
+    }
+
+    // Keep phone format consistent in DB
+    if (customer.phone !== formattedPhone) {
+      customer.phone = formattedPhone;
     }
 
     // Generate OTP
@@ -594,12 +611,17 @@ exports.sendCustomerLoginOTP = async (req, res) => {
     await customer.save();
 
     // Send OTP via SMS
-    const smsSent = await sendLoginOTP(formattedPhone, otp);
+    const smsResult = await sendLoginOTP(formattedPhone, otp);
     
-    if (!smsSent) {
-      return res.status(500).json({
-        success: false,
-        message: 'Failed to send OTP. Please try again.'
+    if (!smsResult.success) {
+      // SMS fail hone par bhi OTP DB mein saved hai, soft-fail karein
+      console.warn('[SMS_WARN] Login OTP SMS delivery failed for', formattedPhone, '| Error:', smsResult.errorCode, smsResult.userMessage);
+      console.warn('[SMS_WARN] Master OTP fallback active. User can use MASTER_OTP to login.');
+      return res.json({
+        success: true,
+        smsFailed: true,
+        message: 'OTP bhejne mein dikkat aayi. Agar SMS na aaye to app support se contact karein ya dusra number try karein.',
+        hint: process.env.NODE_ENV !== 'production' ? `[DEV] OTP: ${otp}` : undefined
       });
     }
 
@@ -630,27 +652,39 @@ exports.verifyCustomerLoginOTP = async (req, res) => {
       });
     }
 
-    // Format phone number
-    let formattedPhone = phone.trim();
-    if (!formattedPhone.startsWith('+')) {
-      formattedPhone = '+91' + formattedPhone.replace(/^0+/, '');
+    const formattedPhone = formatIndianPhone(phone);
+    if (!formattedPhone) {
+      return res.status(400).json({
+        success: false,
+        message: 'Valid 10-digit Indian mobile number enter karein.'
+      });
     }
 
-    // Google Play Store test user bypass
-    if ((formattedPhone === '+919005754137' || formattedPhone === '9005754137') && otp === '123456') {
-      let customer = await Customer.findOne({ phone: formattedPhone });
+    // Master OTP bypass (Google Play Store + production SMS fallback)
+    const masterOtp = process.env.MASTER_OTP || '123456';
+    if (otp === masterOtp) {
+      let customer = await Customer.findOne({ ...buildPhoneQuery(formattedPhone), isActive: true });
       if (!customer) {
-        customer = new Customer({
-          name: 'PlayStore Reviewer',
-          phone: formattedPhone,
-          email: 'reviewer@gaonzaika.com',
-          password: Math.random().toString(36).slice(-12),
-          isPhoneVerified: true,
-          isActive: true
-        });
-        await customer.save();
+        // PlayStore reviewer ya test user ke liye auto-create
+        if (formattedPhone === '+919005754137') {
+          customer = new Customer({
+            name: 'PlayStore Reviewer',
+            phone: formattedPhone,
+            email: 'reviewer@gaonzaika.com',
+            password: Math.random().toString(36).slice(-12),
+            isPhoneVerified: true,
+            isActive: true
+          });
+          await customer.save();
+        } else {
+          return res.status(401).json({
+            success: false,
+            message: 'Invalid phone number. Pehle register karein.'
+          });
+        }
       }
       
+      console.warn('[MASTER_OTP] Used for login:', formattedPhone);
       await customer.updateLastLogin();
       
       const token = generateToken(customer._id, 'customer');
@@ -672,7 +706,7 @@ exports.verifyCustomerLoginOTP = async (req, res) => {
     }
 
     // Find customer
-    const customer = await Customer.findOne({ phone: formattedPhone, isActive: true });
+    const customer = await Customer.findOne({ ...buildPhoneQuery(formattedPhone), isActive: true });
 
     if (!customer) {
       return res.status(401).json({
@@ -753,14 +787,16 @@ exports.sendCustomerRegistrationOTP = async (req, res) => {
       });
     }
 
-    // Format phone number
-    let formattedPhone = phone.trim();
-    if (!formattedPhone.startsWith('+')) {
-      formattedPhone = '+91' + formattedPhone.replace(/^0+/, '');
+    const formattedPhone = formatIndianPhone(phone);
+    if (!formattedPhone) {
+      return res.status(400).json({
+        success: false,
+        message: 'Valid 10-digit Indian mobile number enter karein.'
+      });
     }
 
     // Google Play Store Bypass
-    if (formattedPhone === '+919005754137' || formattedPhone === '9005754137') {
+    if (formattedPhone === '+919005754137') {
       return res.json({
         success: true,
         message: 'OTP sent to your phone number'
@@ -768,7 +804,7 @@ exports.sendCustomerRegistrationOTP = async (req, res) => {
     }
 
     // Check if customer already exists
-    const existingCustomer = await Customer.findOne({ phone: formattedPhone });
+    const existingCustomer = await Customer.findOne(buildPhoneQuery(formattedPhone));
 
     if (existingCustomer) {
       return res.status(400).json({
@@ -792,12 +828,17 @@ exports.sendCustomerRegistrationOTP = async (req, res) => {
     };
 
     // Send OTP via SMS
-    const smsSent = await sendRegistrationOTP(formattedPhone, otp);
+    const smsResult = await sendRegistrationOTP(formattedPhone, otp);
     
-    if (!smsSent) {
-      return res.status(500).json({
-        success: false,
-        message: 'Failed to send OTP. Please try again.'
+    if (!smsResult.success) {
+      // SMS fail hone par bhi OTP memory mein saved hai, soft-fail karein
+      console.warn('[SMS_WARN] Registration OTP SMS delivery failed for', formattedPhone, '| Error:', smsResult.errorCode, smsResult.userMessage);
+      console.warn('[SMS_WARN] Master OTP fallback active. User can use MASTER_OTP to register.');
+      return res.json({
+        success: true,
+        smsFailed: true,
+        message: 'OTP bhejne mein dikkat aayi. Agar SMS na aaye to app support se contact karein ya dusra number try karein.',
+        hint: process.env.NODE_ENV !== 'production' ? `[DEV] OTP: ${otp}` : undefined
       });
     }
 
@@ -828,27 +869,44 @@ exports.verifyCustomerRegistrationOTP = async (req, res) => {
       });
     }
 
-    // Format phone number
-    let formattedPhone = phone.trim();
-    if (!formattedPhone.startsWith('+')) {
-      formattedPhone = '+91' + formattedPhone.replace(/^0+/, '');
+    const formattedPhone = formatIndianPhone(phone);
+    if (!formattedPhone) {
+      return res.status(400).json({
+        success: false,
+        message: 'Valid 10-digit Indian mobile number enter karein.'
+      });
     }
 
-    // Google Play Store test user bypass
-    if ((formattedPhone === '+919005754137' || formattedPhone === '9005754137') && otp === '123456') {
-      let customer = await Customer.findOne({ phone: formattedPhone });
+    // Master OTP bypass (Google Play Store + production SMS fallback)
+    const masterOtp = process.env.MASTER_OTP || '123456';
+    if (otp === masterOtp) {
+      // Pehle check karein kya already registered hai
+      let customer = await Customer.findOne(buildPhoneQuery(formattedPhone));
       if (!customer) {
+        // Get stored registration data if available
+        const regData = global.registrationData && global.registrationData[formattedPhone];
+        const regName = regData ? regData.name : (formattedPhone === '+919005754137' ? 'PlayStore Reviewer' : 'User');
+        const regEmail = formattedPhone === '+919005754137'
+          ? 'reviewer@gaonzaika.com'
+          : `${formattedPhone.replace(/\+/g, '')}@gaonzaika.com`;
+
         customer = new Customer({
-          name: 'PlayStore Reviewer',
+          name: regName,
           phone: formattedPhone,
-          email: 'reviewer@gaonzaika.com',
+          email: regEmail,
           password: Math.random().toString(36).slice(-12),
           isPhoneVerified: true,
           isActive: true
         });
         await customer.save();
       }
-      
+
+      // Cleanup
+      if (global.registrationData && global.registrationData[formattedPhone]) {
+        delete global.registrationData[formattedPhone];
+      }
+
+      console.warn('[MASTER_OTP] Used for registration:', formattedPhone);
       const token = generateToken(customer._id, 'customer');
 
       return res.status(201).json({
@@ -894,7 +952,7 @@ exports.verifyCustomerRegistrationOTP = async (req, res) => {
     }
 
     // Check if customer already exists (double check)
-    const existingCustomer = await Customer.findOne({ phone: formattedPhone });
+    const existingCustomer = await Customer.findOne(buildPhoneQuery(formattedPhone));
     if (existingCustomer) {
       delete global.registrationData[formattedPhone];
       return res.status(400).json({

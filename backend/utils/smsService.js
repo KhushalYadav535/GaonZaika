@@ -33,8 +33,9 @@ const resolveProvider = () => {
 };
 
 // ─── 2Factor.in ──────────────────────────────────────────────────────────────
-// API: GET https://2factor.in/API/V1/{API_KEY}/SMS/{PHONE}/{OTP}/{TEMPLATE}
-// Template "GaonZaikaOTP": "XXXX is your OTP for phone verification on Gaon Zaika. Do not share this OTP with anyone."
+// PRIMARY  : R1 Transactional SMS API — DLT sender GZAIKA se direct SMS, no voice fallback
+// FALLBACK : V1 OTP API (voice call fallback ho sakta hai)
+// Template : "XXXX is your OTP for phone verification on Gaon Zaika. Do not share this OTP with anyone."
 const sendVia2Factor = async (phoneNumber, otp) => {
   const formattedPhone = formatIndianPhone(phoneNumber);
   if (!formattedPhone) {
@@ -43,24 +44,47 @@ const sendVia2Factor = async (phoneNumber, otp) => {
 
   // 2Factor sirf 10-digit number accept karta hai (without +91)
   const digits = formattedPhone.replace('+91', '');
+  const senderID = process.env.TWO_FACTOR_SENDER_ID || 'GZAIKA';
 
+  // Template text mein XXXX ko actual OTP se replace karein
+  const smsText = `${otp} is your OTP for phone verification on Gaon Zaika. Do not share this OTP with anyone.`;
+
+  // ── Step 1: R1 Transactional SMS API (DLT-compliant, no voice fallback) ──────
   try {
-    const url = `https://2factor.in/API/V1/${twoFactorApiKey}/SMS/${digits}/${otp}/${twoFactorTemplate}`;
-    const response = await axios.get(url, { timeout: 15000 });
+    const r1Url = `https://2factor.in/API/R1/?module=TRANS_SMS&apikey=${twoFactorApiKey}&to=${digits}&from=${senderID}&msg=${encodeURIComponent(smsText)}&templatename=${encodeURIComponent(twoFactorTemplate)}`;
+    console.log(`[2FACTOR R1] Sending transactional SMS to ${formattedPhone} from ${senderID}...`);
+    const r1Response = await axios.get(r1Url, { timeout: 15000 });
 
-    if (response.data?.Status === 'Success') {
-      console.log(`[2FACTOR] ✅ OTP sent to ${formattedPhone} | Session: ${response.data.Details}`);
-      return { success: true, sessionId: response.data.Details };
+    if (r1Response.data?.Status === 'Success') {
+      console.log(`[2FACTOR R1] OTP SMS sent to ${formattedPhone} | Session: ${r1Response.data.Details}`);
+      return { success: true, sessionId: r1Response.data.Details, method: 'R1_TRANS_SMS' };
     }
 
-    console.error('[2FACTOR] ❌ Unexpected response:', response.data);
+    console.warn('[2FACTOR R1] R1 API response:', r1Response.data, '— trying V1 OTP API...');
+  } catch (r1Error) {
+    console.warn('[2FACTOR R1] R1 API error:', r1Error.response?.data || r1Error.message, '— trying V1 OTP API...');
+  }
+
+
+  // ── Step 2: V1 OTP API as fallback ───────────────────────────────────────────
+  try {
+    const v1Url = `https://2factor.in/API/V1/${twoFactorApiKey}/SMS/${digits}/${otp}/${twoFactorTemplate}`;
+    console.log(`[2FACTOR V1] Fallback OTP send to ${formattedPhone}...`);
+    const v1Response = await axios.get(v1Url, { timeout: 15000 });
+
+    if (v1Response.data?.Status === 'Success') {
+      console.log(`[2FACTOR V1] OTP sent to ${formattedPhone} | Session: ${v1Response.data.Details}`);
+      return { success: true, sessionId: v1Response.data.Details, method: 'V1_OTP' };
+    }
+
+    console.error('[2FACTOR V1] Unexpected response:', v1Response.data);
     return {
       success: false,
       errorCode: '2FACTOR_FAILED',
-      userMessage: `OTP bhejne mein dikkat aayi: ${response.data?.Details || 'Unknown error'}`
+      userMessage: `OTP bhejne mein dikkat aayi: ${v1Response.data?.Details || 'Unknown error'}`
     };
   } catch (error) {
-    console.error('[2FACTOR] ❌ API error:', error.response?.data || error.message);
+    console.error('[2FACTOR] Both APIs failed:', error.response?.data || error.message);
     return {
       success: false,
       errorCode: '2FACTOR_ERROR',
@@ -68,6 +92,7 @@ const sendVia2Factor = async (phoneNumber, otp) => {
     };
   }
 };
+
 
 // ─── MSG91 ────────────────────────────────────────────────────────────────────
 const sendViaMsg91 = async (phoneNumber, message) => {

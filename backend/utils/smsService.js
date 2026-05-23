@@ -20,14 +20,14 @@ const smsProvider = (process.env.SMS_PROVIDER || '').toLowerCase();
 let twilioClient = null;
 let twilioAccountType = null;
 
-// ─── Provider Resolution (Priority: 2factor > msg91 > twilio) ────────────────
+// ─── Provider Resolution (Priority: msg91 > 2factor > twilio) ────────────────
 const resolveProvider = () => {
-  if (smsProvider === '2factor'  && twoFactorApiKey)  return '2factor';
   if (smsProvider === 'msg91'    && msg91AuthKey)      return 'msg91';
+  if (smsProvider === '2factor'  && twoFactorApiKey)  return '2factor';
   if (smsProvider === 'twilio'   && twilioClient)      return 'twilio';
   // Auto-detect
-  if (twoFactorApiKey)  return '2factor';
   if (msg91AuthKey)     return 'msg91';
+  if (twoFactorApiKey)  return '2factor';
   if (twilioClient)     return 'twilio';
   return null;
 };
@@ -95,53 +95,43 @@ const sendVia2Factor = async (phoneNumber, otp) => {
 
 
 // ─── MSG91 ────────────────────────────────────────────────────────────────────
-const sendViaMsg91 = async (phoneNumber, message) => {
+const sendViaMsg91 = async (phoneNumber, otp) => {
   const formattedPhone = formatIndianPhone(phoneNumber);
   if (!formattedPhone) {
     return { success: false, errorCode: 'INVALID_PHONE', userMessage: 'Valid 10-digit Indian mobile number enter karein.' };
   }
 
+  // MSG91 OTP API requires country code without '+' (e.g. 918182838680)
   const mobile = formattedPhone.replace('+', '');
 
   try {
-    const response = await axios.post(
-      'https://control.msg91.com/api/v5/flow/',
-      {
-        template_id: process.env.MSG91_TEMPLATE_ID,
-        short_url: '0',
-        recipients: [{ mobiles: mobile, var: message }]
+    const response = await axios.get('https://control.msg91.com/api/v5/otp', {
+      params: {
+        mobile: mobile,
+        authkey: msg91AuthKey,
+        otp: otp
       },
-      { headers: { authkey: msg91AuthKey, 'Content-Type': 'application/json' }, timeout: 15000 }
-    );
+      timeout: 15000
+    });
 
-    if (response.data?.type === 'success' || response.status === 200) {
-      console.log('[MSG91] ✅ SMS sent to:', formattedPhone);
-      return { success: true };
+    if (response.data?.type === 'success') {
+      console.log(`[MSG91] ✅ OTP sent to ${formattedPhone} | Request ID: ${response.data.request_id}`);
+      return { success: true, sessionId: response.data.request_id, method: 'MSG91_OTP' };
     }
 
     console.error('[MSG91] ❌ Unexpected response:', response.data);
-    return { success: false, errorCode: 'MSG91_FAILED', userMessage: 'OTP SMS bhejne mein problem aayi (MSG91).' };
-  } catch (msg91FlowError) {
-    // Fallback to legacy API
-    try {
-      const params = new URLSearchParams({
-        authkey: msg91AuthKey, mobiles: mobile, message,
-        sender: msg91SenderId, route: '4', country: '91'
-      });
-      const legacyResponse = await axios.get(
-        `https://api.msg91.com/api/sendhttp.php?${params.toString()}`,
-        { timeout: 15000 }
-      );
-      const body = String(legacyResponse.data || '').trim();
-      if (body && !body.toLowerCase().includes('error')) {
-        console.log('[MSG91 legacy] ✅ SMS sent to:', formattedPhone);
-        return { success: true };
-      }
-      return { success: false, errorCode: 'MSG91_FAILED', userMessage: 'OTP SMS bhejne mein problem aayi (MSG91).' };
-    } catch (error) {
-      console.error('[MSG91] ❌ Error:', error.response?.data || error.message);
-      return { success: false, errorCode: 'MSG91_FAILED', userMessage: 'OTP SMS bhejne mein problem aayi (MSG91).' };
-    }
+    return {
+      success: false,
+      errorCode: 'MSG91_FAILED',
+      userMessage: `OTP bhejne mein dikkat aayi: ${response.data?.message || 'Unknown error'}`
+    };
+  } catch (error) {
+    console.error('[MSG91] ❌ API error:', error.response?.data || error.message);
+    return {
+      success: false,
+      errorCode: 'MSG91_ERROR',
+      userMessage: 'OTP SMS bhejne mein problem aayi (MSG91).'
+    };
   }
 };
 
@@ -183,12 +173,14 @@ const sendSms = async (phoneNumber, body, otp = null) => {
     return { success: false, errorCode: 'SMS_NOT_CONFIGURED', userMessage: 'SMS service configure nahi hai.' };
   }
 
+  if (provider === 'msg91') {
+    return sendViaMsg91(phoneNumber, otp || body);
+  }
+
   if (provider === '2factor') {
     // 2Factor ke liye OTP directly pass karte hain (template mein XXXX replace hoga)
     return sendVia2Factor(phoneNumber, otp || body);
   }
-
-  if (provider === 'msg91') return sendViaMsg91(phoneNumber, body);
 
   return sendViaTwilio(phoneNumber, body);
 };

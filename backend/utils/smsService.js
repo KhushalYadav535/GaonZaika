@@ -20,14 +20,14 @@ const smsProvider = (process.env.SMS_PROVIDER || '').toLowerCase();
 let twilioClient = null;
 let twilioAccountType = null;
 
-// ─── Provider Resolution (Priority: msg91 > 2factor > twilio) ────────────────
+// ─── Provider Resolution (Priority: 2factor > msg91 > twilio) ────────────────
 const resolveProvider = () => {
-  if (smsProvider === 'msg91'    && msg91AuthKey)      return 'msg91';
   if (smsProvider === '2factor'  && twoFactorApiKey)  return '2factor';
+  if (smsProvider === 'msg91'    && msg91AuthKey)      return 'msg91';
   if (smsProvider === 'twilio'   && twilioClient)      return 'twilio';
   // Auto-detect
-  if (msg91AuthKey)     return 'msg91';
   if (twoFactorApiKey)  return '2factor';
+  if (msg91AuthKey)     return 'msg91';
   if (twilioClient)     return 'twilio';
   return null;
 };

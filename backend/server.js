@@ -33,6 +33,7 @@ const deliveryRoutes = require('./routes/delivery');
 const adminRoutes = require('./routes/admin');
 const pushNotificationRoutes = require('./routes/pushNotifications');
 const foodRoutes = require('./routes/foods');
+const configRoutes = require('./routes/config');
 
 // Middleware
 app.use(helmet());
@@ -172,6 +173,7 @@ app.use('/api/delivery', deliveryRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/push-notifications', pushNotificationRoutes);
 app.use('/api/foods', foodRoutes);
+app.use('/api/config', configRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {

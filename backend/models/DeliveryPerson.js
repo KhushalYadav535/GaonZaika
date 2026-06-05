@@ -142,6 +142,11 @@ const deliveryPersonSchema = new mongoose.Schema({
   emailVerificationOTP: {
     code: String,
     expiresAt: Date
+  },
+  accountStatus: {
+    type: String,
+    enum: ['pending', 'approved', 'rejected'],
+    default: 'pending'
   }
 }, {
   timestamps: true

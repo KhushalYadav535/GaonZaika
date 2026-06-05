@@ -94,6 +94,11 @@ const vendorSchema = new mongoose.Schema({
   lastLiveToggle: {
     type: Date,
     default: null
+  },
+  accountStatus: {
+    type: String,
+    enum: ['pending', 'approved', 'rejected'],
+    default: 'pending'
   }
 }, {
   timestamps: true

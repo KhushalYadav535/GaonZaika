@@ -44,12 +44,14 @@ const getUser = async (req, res, next) => {
         user = await DeliveryPerson.findById(id).select('-password');
         break;
       case 'admin':
+      case 'super_admin':
+      case 'moderator':
         user = await Admin.findById(id).select('-password');
         break;
       default:
         return res.status(400).json({
           success: false,
-          message: 'Invalid user role'
+          message: `Invalid user role: ${role}`
         });
     }
 
@@ -95,7 +97,7 @@ const authorizeRole = (...roles) => {
 const requireCustomer = authorizeRole('customer');
 const requireVendor = authorizeRole('vendor');
 const requireDelivery = authorizeRole('delivery');
-const requireAdmin = authorizeRole('admin');
+const requireAdmin = authorizeRole('admin', 'super_admin', 'moderator');
 
 // Optional authentication (for routes that work with or without auth)
 const optionalAuth = async (req, res, next) => {
@@ -121,6 +123,8 @@ const optionalAuth = async (req, res, next) => {
           user = await DeliveryPerson.findById(id).select('-password');
           break;
         case 'admin':
+        case 'super_admin':
+        case 'moderator':
           user = await Admin.findById(id).select('-password');
           break;
       }
@@ -137,6 +141,58 @@ const optionalAuth = async (req, res, next) => {
   }
 };
 
+// Middleware to check specific admin permissions
+const requirePermission = (requiredPermission) => {
+  return (req, res, next) => {
+    if (!req.user || !['admin', 'super_admin', 'moderator'].includes(req.user.role)) {
+      return res.status(401).json({
+        success: false,
+        message: 'Access denied. Admin token required.'
+      });
+    }
+
+    // Since we decode JWT, if permissions aren't in JWT we need to fetch user
+    // Alternatively, we ensure `getUser` middleware runs before `requirePermission`
+    if (!req.userDetails || !req.userDetails.permissions) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied. No permissions found.'
+      });
+    }
+
+    if (req.userDetails.role === 'super_admin' || req.userDetails.permissions.includes(requiredPermission)) {
+      return next();
+    }
+
+    return res.status(403).json({
+      success: false,
+      message: `Access denied. Requires '${requiredPermission}' permission.`
+    });
+  };
+};
+
+const requireSuperAdmin = async (req, res, next) => {
+  if (!req.user || !['admin', 'super_admin', 'moderator'].includes(req.user.role)) {
+    return res.status(401).json({
+      success: false,
+      message: 'Access denied.'
+    });
+  }
+  
+  if (!req.userDetails) {
+    return res.status(500).json({ success: false, message: 'User details not loaded.' });
+  }
+
+  if (req.userDetails.role !== 'super_admin') {
+    return res.status(403).json({
+      success: false,
+      message: 'Access denied. Super Admin privileges required.'
+    });
+  }
+  
+  next();
+};
+
 module.exports = {
   verifyToken,
   getUser,
@@ -145,5 +201,7 @@ module.exports = {
   requireVendor,
   requireDelivery,
   requireAdmin,
-  optionalAuth
+  optionalAuth,
+  requireSuperAdmin,
+  requirePermission
 }; 

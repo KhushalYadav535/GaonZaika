@@ -322,7 +322,9 @@ exports.verifyRegistrationOTP = async (req, res) => {
           password: registrationData.password,
           restaurantId: dummyRestaurantId,
           pin: '1234',
-          isEmailVerified: true
+          isEmailVerified: true,
+          isActive: false,
+          accountStatus: 'pending'
         });
 
         await user.save();
@@ -338,7 +340,7 @@ exports.verifyRegistrationOTP = async (req, res) => {
           },
           minOrder: 100,
           isOpen: true,
-          isActive: true,
+          isActive: false,
           vendorId: user._id,
           contact: {
             phone: registrationData.phone,
@@ -374,7 +376,9 @@ exports.verifyRegistrationOTP = async (req, res) => {
             type: 'Bike',
             number: registrationData.vehicleNumber
           },
-          isEmailVerified: true
+          isEmailVerified: true,
+          isActive: false,
+          accountStatus: 'pending'
         });
         break;
 

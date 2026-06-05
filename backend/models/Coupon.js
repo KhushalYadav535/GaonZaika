@@ -1,0 +1,76 @@
+const mongoose = require('mongoose');
+
+const couponSchema = new mongoose.Schema({
+  code: {
+    type: String,
+    required: true,
+    unique: true,
+    uppercase: true,
+    trim: true
+  },
+  description: {
+    type: String,
+    trim: true,
+    default: ''
+  },
+  type: {
+    type: String,
+    enum: ['percentage', 'flat', 'free_delivery'],
+    required: true
+  },
+  discount: {
+    type: Number,
+    required: true,
+    min: 0
+  },
+  maxDiscount: {
+    type: Number,
+    default: null
+  },
+  minOrder: {
+    type: Number,
+    default: 0
+  },
+  usageLimit: {
+    type: Number,
+    default: 100
+  },
+  usedCount: {
+    type: Number,
+    default: 0
+  },
+  applicableRestaurants: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Restaurant'
+  }],
+  validFrom: {
+    type: Date,
+    required: true
+  },
+  validTo: {
+    type: Date,
+    required: true
+  },
+  isActive: {
+    type: Boolean,
+    default: true
+  }
+}, {
+  timestamps: true
+});
+
+couponSchema.index({ code: 1 });
+couponSchema.index({ isActive: 1, validTo: 1 });
+
+// Check if coupon is still valid
+couponSchema.methods.isValid = function () {
+  const now = new Date();
+  return (
+    this.isActive &&
+    this.validFrom <= now &&
+    this.validTo >= now &&
+    this.usedCount < this.usageLimit
+  );
+};
+
+module.exports = mongoose.model('Coupon', couponSchema);

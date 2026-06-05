@@ -42,10 +42,26 @@ router.post('/', validateOrder, async (req, res) => {
       items,
       subtotal,
       deliveryFee = 20,
+      surgeFee = 0,
       totalAmount,
       notes,
       paymentMethod = 'Cash on Delivery'
     } = req.body;
+
+    // Fetch dynamic delivery fee from AppConfig
+    const AppConfig = require('../models/AppConfig');
+    let config = await AppConfig.findOne({ configId: 'global_config' });
+    let dynamicDeliveryFee = config?.customerDeliveryFee !== undefined ? config.customerDeliveryFee : 20;
+    
+    // Check for free delivery threshold
+    if (config?.freeDeliveryThreshold && subtotal >= config.freeDeliveryThreshold) {
+      dynamicDeliveryFee = 0;
+    }
+    
+    // Override the request's deliveryFee with our trusted dynamic fee
+    // We also recalculate the totalAmount to be secure
+    const secureDeliveryFee = dynamicDeliveryFee;
+    const secureTotalAmount = subtotal + secureDeliveryFee + surgeFee;
 
     // Get customer email for order lookup
     let customerEmail = null;
@@ -114,8 +130,9 @@ router.post('/', validateOrder, async (req, res) => {
         totalPrice: item.price * item.quantity
       })),
       subtotal,
-      deliveryFee,
-      totalAmount,
+      deliveryFee: secureDeliveryFee,
+      surgeFee,
+      totalAmount: secureTotalAmount,
       notes,
       paymentMethod
     });

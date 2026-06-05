@@ -80,6 +80,10 @@ const orderSchema = new mongoose.Schema({
     type: Number,
     default: 20
   },
+  surgeFee: {
+    type: Number,
+    default: 0
+  },
   totalAmount: {
     type: Number,
     required: true
@@ -130,6 +134,15 @@ const orderSchema = new mongoose.Schema({
   notes: {
     type: String,
     trim: true
+  },
+  refundStatus: {
+    type: String,
+    enum: ['none', 'requested', 'processing', 'refunded', 'rejected'],
+    default: 'none'
+  },
+  disputeNotes: {
+    type: String,
+    default: ''
   },
   rating: {
     type: Number,

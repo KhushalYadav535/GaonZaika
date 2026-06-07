@@ -183,7 +183,7 @@ router.get('/nearby', [
       maxDistance, 
       filters
     )
-    .select('name cuisine rating deliveryTime minOrder image isOpen totalRatings location address')
+    .select('name cuisine rating deliveryTime minOrder image isOpen isBusy totalRatings location address')
     .limit(parseInt(limit))
     .sort({ rating: -1, totalRatings: -1 });
 
@@ -200,7 +200,10 @@ router.get('/nearby', [
       );
 
       // Calculate dynamic delivery time and fee based on distance
-      const estimatedDeliveryTime = calculateDeliveryTime(distance, restaurant.deliveryTime.min);
+      let estimatedDeliveryTime = calculateDeliveryTime(distance, restaurant.deliveryTime.min);
+      if (restaurant.isBusy) {
+        estimatedDeliveryTime += 20; // Add 20 minutes if busy
+      }
       const deliveryFee = calculateDeliveryFee(distance, restaurant.deliveryFee);
 
       // Determine if restaurant is open based on vendor live status
@@ -220,6 +223,7 @@ router.get('/nearby', [
         deliveryFee: deliveryFee,
         image: restaurant.image || 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=400',
         isOpen: isOpen,
+        isBusy: restaurant.isBusy || false,
         distance: formatDistance(distance),
         distanceKm: distance,
         address: restaurant.address.fullAddress || restaurant.address.street,

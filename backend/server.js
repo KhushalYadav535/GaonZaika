@@ -7,6 +7,7 @@ const rateLimit = require('express-rate-limit');
 const http = require('http');
 const socketIo = require('socket.io');
 require('dotenv').config();
+const cronService = require('./services/cronService');
 
 const app = express();
 const server = http.createServer(app);
@@ -241,6 +242,7 @@ io.on('connection', (socket) => {
 const PORT = process.env.PORT || 3000;
 const startServer = async () => {
   await connectDB();
+  cronService.start();
   server.listen(PORT, () => {
     console.log(`🚀 Gaon Zaika API server running on port ${PORT}`);
     console.log(`📱 Environment: ${process.env.NODE_ENV || 'development'}`);

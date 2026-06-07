@@ -782,7 +782,7 @@ exports.verifyCustomerLoginOTP = async (req, res) => {
 // Send OTP for registration
 exports.sendCustomerRegistrationOTP = async (req, res) => {
   try {
-    const { name, phone } = req.body;
+    const { name, phone, referralCode } = req.body;
 
     if (!name || !phone) {
       return res.status(400).json({
@@ -828,7 +828,8 @@ exports.sendCustomerRegistrationOTP = async (req, res) => {
       phone: formattedPhone,
       role: 'customer',
       otp,
-      expiresAt
+      expiresAt,
+      referralCode: referralCode ? referralCode.toUpperCase().trim() : null
     };
 
     // Send OTP via SMS
@@ -894,13 +895,17 @@ exports.verifyCustomerRegistrationOTP = async (req, res) => {
           ? 'reviewer@gaonzaika.com'
           : `${formattedPhone.replace(/\+/g, '')}@gaonzaika.com`;
 
+        const prefix = regName.substring(0, 3).toUpperCase().replace(/[^A-Z]/g, '');
+        const randomStr = Math.random().toString(36).substring(2, 6).toUpperCase();
+        
         customer = new Customer({
           name: regName,
           phone: formattedPhone,
           email: regEmail,
           password: Math.random().toString(36).slice(-12),
           isPhoneVerified: true,
-          isActive: true
+          isActive: true,
+          referralCode: `${prefix}-${randomStr}`
         });
         await customer.save();
       }
@@ -965,15 +970,34 @@ exports.verifyCustomerRegistrationOTP = async (req, res) => {
       });
     }
 
-    // Create customer (no password needed for phone-based auth)
+    // Generate a unique referral code for the new customer
+    const prefix = registrationData.name ? registrationData.name.substring(0, 3).toUpperCase().replace(/[^A-Z]/g, '') : 'GZ';
+    const randomStr = Math.random().toString(36).substring(2, 6).toUpperCase();
+    const newReferralCode = `${prefix}-${randomStr}`;
+
+    // Create customer
     const customer = new Customer({
       name: registrationData.name,
       phone: formattedPhone,
-      email: `${formattedPhone.replace(/\+/g, '')}@gaonzaika.com`, // Generate email from phone
-      password: Math.random().toString(36).slice(-12), // Random password (not used for phone auth)
+      email: `${formattedPhone.replace(/\+/g, '')}@gaonzaika.com`, 
+      password: Math.random().toString(36).slice(-12), 
       isPhoneVerified: true,
-      isEmailVerified: false
+      isEmailVerified: false,
+      referralCode: newReferralCode
     });
+
+    // Process referral if provided
+    if (registrationData.referralCode) {
+      const referringCustomer = await Customer.findOne({ referralCode: registrationData.referralCode });
+      if (referringCustomer) {
+        customer.referredBy = referringCustomer._id;
+        customer.zaikaCoins = 5; // Reward new user with 5 coins
+
+        // Reward referrer with 5 coins
+        referringCustomer.zaikaCoins = (referringCustomer.zaikaCoins || 0) + 5;
+        await referringCustomer.save();
+      }
+    }
 
     await customer.save();
 

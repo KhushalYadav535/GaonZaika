@@ -292,6 +292,97 @@ router.delete('/restaurants/:id', async (req, res) => {
   }
 });
 
+// Get restaurant menu (admin view)
+router.get('/restaurants/:id/menu', async (req, res) => {
+  try {
+    const restaurant = await Restaurant.findById(req.params.id);
+    if (!restaurant) {
+      return res.status(404).json({ success: false, message: 'Restaurant not found' });
+    }
+    res.json({ success: true, data: restaurant.menu });
+  } catch (error) {
+    console.error('Error fetching menu:', error);
+    res.status(500).json({ success: false, message: 'Failed to fetch menu' });
+  }
+});
+
+// Add menu item (admin view)
+router.post('/restaurants/:id/menu', async (req, res) => {
+  try {
+    const { name, price, category, description, isVeg, preparationTime } = req.body;
+    const restaurant = await Restaurant.findById(req.params.id);
+    
+    if (!restaurant) {
+      return res.status(404).json({ success: false, message: 'Restaurant not found' });
+    }
+    
+    restaurant.menu.push({
+      name,
+      price: parseFloat(price),
+      category: category || 'Main Course',
+      description: description || name,
+      isVeg: isVeg !== undefined ? isVeg : true,
+      preparationTime: preparationTime ? parseInt(preparationTime) : 15,
+      isAvailable: true
+    });
+    
+    await restaurant.save();
+    res.status(201).json({ success: true, message: 'Menu item added successfully', data: restaurant.menu[restaurant.menu.length - 1] });
+  } catch (error) {
+    console.error('Error adding menu item:', error);
+    res.status(500).json({ success: false, message: 'Failed to add menu item' });
+  }
+});
+
+// Update menu item (admin view)
+router.put('/restaurants/:id/menu/:itemId', async (req, res) => {
+  try {
+    const { id, itemId } = req.params;
+    const updateData = req.body;
+    
+    const restaurant = await Restaurant.findById(id);
+    if (!restaurant) return res.status(404).json({ success: false, message: 'Restaurant not found' });
+    
+    const menuItem = restaurant.menu.id(itemId);
+    if (!menuItem) return res.status(404).json({ success: false, message: 'Menu item not found' });
+    
+    if (updateData.name !== undefined) menuItem.name = updateData.name;
+    if (updateData.price !== undefined) menuItem.price = parseFloat(updateData.price);
+    if (updateData.category !== undefined) menuItem.category = updateData.category;
+    if (updateData.description !== undefined) menuItem.description = updateData.description;
+    if (updateData.isVeg !== undefined) menuItem.isVeg = updateData.isVeg;
+    if (updateData.isAvailable !== undefined) menuItem.isAvailable = updateData.isAvailable;
+    if (updateData.preparationTime !== undefined) menuItem.preparationTime = parseInt(updateData.preparationTime);
+    
+    await restaurant.save();
+    res.json({ success: true, message: 'Menu item updated successfully', data: menuItem });
+  } catch (error) {
+    console.error('Error updating menu item:', error);
+    res.status(500).json({ success: false, message: 'Failed to update menu item' });
+  }
+});
+
+// Delete menu item (admin view)
+router.delete('/restaurants/:id/menu/:itemId', async (req, res) => {
+  try {
+    const { id, itemId } = req.params;
+    const restaurant = await Restaurant.findById(id);
+    
+    if (!restaurant) return res.status(404).json({ success: false, message: 'Restaurant not found' });
+    
+    const menuItem = restaurant.menu.id(itemId);
+    if (!menuItem) return res.status(404).json({ success: false, message: 'Menu item not found' });
+    
+    restaurant.menu.pull(itemId);
+    await restaurant.save();
+    
+    res.json({ success: true, message: 'Menu item deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting menu item:', error);
+    res.status(500).json({ success: false, message: 'Failed to delete menu item' });
+  }
+});
+
 // Get all orders (admin view)
 router.get('/orders', async (req, res) => {
   try {
@@ -1285,6 +1376,71 @@ router.post('/coupons/validate', async (req, res) => {
     res.json({ success: true, data: { coupon, discountAmount, freeDelivery: coupon.type === 'free_delivery' } });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Failed to validate coupon' });
+  }
+});
+
+// ─── MARKETING PUSH NOTIFICATIONS ────────────────────────────────────────────
+router.post('/marketing/push-notification', [
+  body('title').notEmpty().withMessage('Title is required'),
+  body('message').notEmpty().withMessage('Message is required')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ success: false, message: errors.array()[0].msg });
+    }
+
+    const { title, message, targetAudience = 'all' } = req.body;
+    
+    let pushTokens = [];
+
+    if (targetAudience === 'all' || targetAudience === 'customers') {
+      const customers = await Customer.find({ pushToken: { $exists: true, $ne: '' } });
+      pushTokens.push(...customers.map(c => c.pushToken));
+    }
+    
+    if (targetAudience === 'all' || targetAudience === 'vendors') {
+      const vendors = await Vendor.find({ pushToken: { $exists: true, $ne: '' } });
+      pushTokens.push(...vendors.map(v => v.pushToken));
+    }
+
+    if (targetAudience === 'all' || targetAudience === 'delivery') {
+      const deliveryPersons = await DeliveryPerson.find({ pushToken: { $exists: true, $ne: '' } });
+      pushTokens.push(...deliveryPersons.map(d => d.pushToken));
+    }
+
+    // Remove duplicates
+    pushTokens = [...new Set(pushTokens)].filter(Boolean);
+
+    if (pushTokens.length === 0) {
+      return res.status(400).json({ success: false, message: 'No users found with registered devices for this audience' });
+    }
+
+    const pushNotificationService = require('../services/pushNotificationService');
+    await pushNotificationService.sendPushNotificationToMultiple(
+      pushTokens, 
+      title, 
+      message, 
+      { type: 'promotional' }
+    );
+
+    res.json({ 
+      success: true, 
+      message: `Notification queued for ${pushTokens.length} devices`,
+      count: pushTokens.length
+    });
+  } catch (error) {
+    console.error('Error sending marketing push:', error);
+    res.status(500).json({ success: false, message: 'Failed to send notifications' });
+  }
+});
+
+router.get('/marketing/push-notifications-history', async (req, res) => {
+  try {
+    // For now we return an empty array or dummy data until we set up a Notification model for broadcasts.
+    res.json({ success: true, data: [] });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Failed to fetch history' });
   }
 });
 

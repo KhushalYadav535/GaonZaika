@@ -229,6 +229,15 @@ router.post('/:orderId/verify-otp', async (req, res) => {
     order.actualDeliveryTime = new Date();
     await order.save();
 
+    // Award 1 Zaika Coin to the customer
+    if (order.customerInfo && order.customerInfo.email) {
+      const Customer = require('../models/Customer');
+      await Customer.findOneAndUpdate(
+        { email: order.customerInfo.email },
+        { $inc: { zaikaCoins: 1 } }
+      );
+    }
+
     res.json({ 
       success: true, 
       message: 'OTP verified successfully, order marked as delivered',

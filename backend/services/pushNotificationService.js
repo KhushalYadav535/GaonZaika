@@ -13,6 +13,32 @@ class PushNotificationService {
         return { success: false, message: 'Invalid token format' };
       }
 
+      // Automatically save to UserNotification if this token belongs to a Customer
+      try {
+        const Customer = require('../models/Customer');
+        const UserNotification = require('../models/UserNotification');
+        const customer = await Customer.findOne({ pushToken });
+        if (customer) {
+          const notificationType = data.type || 'system';
+          const notification = new UserNotification({
+            userId: customer._id,
+            title,
+            message: body,
+            type: ['order_update', 'promotional', 'system', 'offer', 'new_order', 'order_accepted', 'order_preparing', 'order_ready_for_pickup', 'delivery_assigned', 'out_for_delivery', 'order_delivered', 'order_cancelled', 'delivery_arrived', 'delivery_update', 'order_ready', 'payment_confirmation'].includes(data.type) ? 'order_update' : 'system', // Map to allowed enums
+            data
+          });
+          // Fix enum validation: 'order_update', 'promotional', 'system', 'offer'
+          if (['promotional', 'offer', 'system'].includes(data.type)) {
+             notification.type = data.type;
+          } else if (data.type) {
+             notification.type = 'order_update';
+          }
+          await notification.save();
+        }
+      } catch (dbErr) {
+        console.error('Error saving UserNotification:', dbErr);
+      }
+
       const message = {
         to: pushToken,
         sound: 'default',
@@ -45,6 +71,34 @@ class PushNotificationService {
   // Send push notification to multiple devices
   async sendPushNotificationToMultiple(pushTokens, title, body, data = {}) {
     try {
+      // Automatically save to UserNotification if these tokens belong to Customers
+      try {
+        const Customer = require('../models/Customer');
+        const UserNotification = require('../models/UserNotification');
+        const customers = await Customer.find({ pushToken: { $in: pushTokens } });
+        
+        if (customers.length > 0) {
+          let notificationType = 'system';
+          if (['promotional', 'offer', 'system'].includes(data.type)) {
+             notificationType = data.type;
+          } else if (data.type) {
+             notificationType = 'order_update';
+          }
+          
+          const notificationsToSave = customers.map(customer => ({
+            userId: customer._id,
+            title,
+            message: body,
+            type: notificationType,
+            data
+          }));
+          
+          await UserNotification.insertMany(notificationsToSave);
+        }
+      } catch (dbErr) {
+        console.error('Error saving multiple UserNotifications:', dbErr);
+      }
+
       const messages = pushTokens.map(token => ({
         to: token,
         sound: 'default',

@@ -122,6 +122,10 @@ const restaurantSchema = new mongoose.Schema({
     type: Boolean,
     default: true
   },
+  isBusy: {
+    type: Boolean,
+    default: false
+  },
   isActive: {
     type: Boolean,
     default: true

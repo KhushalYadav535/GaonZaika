@@ -50,6 +50,10 @@ const customerSchema = new mongoose.Schema({
     type: Boolean,
     default: true
   },
+  zaikaCoins: {
+    type: Number,
+    default: 0
+  },
   lastLogin: {
     type: Date,
     default: null
@@ -68,6 +72,16 @@ const customerSchema = new mongoose.Schema({
   },
   pushToken: {
     type: String,
+    default: null
+  },
+  referralCode: {
+    type: String,
+    unique: true,
+    sparse: true
+  },
+  referredBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Customer',
     default: null
   },
   resetPasswordOTP: {

@@ -45,7 +45,8 @@ router.post('/', validateOrder, async (req, res) => {
       surgeFee = 0,
       totalAmount,
       notes,
-      paymentMethod = 'Cash on Delivery'
+      paymentMethod = 'Cash on Delivery',
+      useZaikaCoins = false
     } = req.body;
 
     // Fetch dynamic delivery fee from AppConfig
@@ -58,19 +59,31 @@ router.post('/', validateOrder, async (req, res) => {
       dynamicDeliveryFee = 0;
     }
     
-    // Override the request's deliveryFee with our trusted dynamic fee
-    // We also recalculate the totalAmount to be secure
-    const secureDeliveryFee = dynamicDeliveryFee;
-    const secureTotalAmount = subtotal + secureDeliveryFee + surgeFee;
-
-    // Get customer email for order lookup
+    // Get customer email and check zaika coins for order lookup
     let customerEmail = null;
+    let customerObj = null;
     if (customerId) {
       const customer = await Customer.findById(customerId);
       if (customer) {
         customerEmail = customer.email;
+        customerObj = customer;
       }
     }
+
+    // Process Zaika Coins for free delivery
+    let appliedZaikaCoins = false;
+    if (useZaikaCoins && customerObj && customerObj.zaikaCoins >= 10) {
+      dynamicDeliveryFee = 0;
+      appliedZaikaCoins = true;
+      // Deduct 10 coins
+      customerObj.zaikaCoins -= 10;
+      await customerObj.save();
+    }
+    
+    // Override the request's deliveryFee with our trusted dynamic fee
+    // We also recalculate the totalAmount to be secure
+    const secureDeliveryFee = dynamicDeliveryFee;
+    const secureTotalAmount = subtotal + secureDeliveryFee + surgeFee;
 
     // Verify restaurant exists and is open
     const restaurant = await Restaurant.findById(restaurantId);
@@ -133,6 +146,7 @@ router.post('/', validateOrder, async (req, res) => {
       deliveryFee: secureDeliveryFee,
       surgeFee,
       totalAmount: secureTotalAmount,
+      usedZaikaCoins: appliedZaikaCoins,
       notes,
       paymentMethod
     });
@@ -280,7 +294,7 @@ router.get('/:id', async (req, res) => {
 
 // Update order status
 router.patch('/:id/status', [
-  body('status').isIn(['Order Placed', 'Accepted', 'Preparing', 'Ready for Delivery', 'Out for Delivery', 'Delivered', 'Cancelled'])
+  body('status').isIn(['Order Placed', 'Accepted', 'Preparing', 'Ready for Delivery', 'Out for Delivery', 'Arriving Soon', 'Delivered', 'Cancelled'])
     .withMessage('Invalid status')
 ], async (req, res) => {
   try {
@@ -772,4 +786,67 @@ router.post('/:orderId/complete', verifyToken, requireDelivery, async (req, res)
   }
 });
 
-module.exports = router; 
+// ─── RATE ORDER: Customer rates a delivered order ─────────────────────────────
+// POST /api/orders/:orderId/rate
+router.post('/:orderId/rate', verifyToken, async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const { rating, review } = req.body;
+
+    if (!rating || rating < 1 || rating > 5) {
+      return res.status(400).json({ success: false, message: 'Rating must be between 1 and 5' });
+    }
+
+    const order = await Order.findById(orderId)
+      .populate('restaurantId', '_id name');
+
+    if (!order) {
+      return res.status(404).json({ success: false, message: 'Order not found' });
+    }
+
+    if (order.status !== 'Delivered') {
+      return res.status(400).json({ success: false, message: 'You can only rate delivered orders' });
+    }
+
+    if (order.rating) {
+      return res.status(400).json({ success: false, message: 'You have already rated this order' });
+    }
+
+    order.rating = rating;
+    order.review = review?.trim() || '';
+    await order.save();
+
+    // Update restaurant average rating
+    try {
+      const Restaurant = require('../models/Restaurant');
+      const restaurantId = order.restaurantId?._id || order.restaurantId;
+      if (restaurantId) {
+        const allRatedOrders = await Order.find({
+          restaurantId,
+          rating: { $exists: true, $ne: null }
+        }).select('rating');
+        if (allRatedOrders.length > 0) {
+          const avgRating = allRatedOrders.reduce((sum, o) => sum + o.rating, 0) / allRatedOrders.length;
+          await Restaurant.findByIdAndUpdate(restaurantId, {
+            rating: Math.round(avgRating * 10) / 10,
+            totalRatings: allRatedOrders.length
+          });
+        }
+      }
+    } catch (ratingErr) {
+      console.error('Error updating restaurant rating:', ratingErr);
+      // Non-critical, don't fail the request
+    }
+
+    res.json({
+      success: true,
+      message: 'Thank you for your rating!',
+      data: { rating: order.rating, review: order.review }
+    });
+  } catch (error) {
+    console.error('Error rating order:', error);
+    res.status(500).json({ success: false, message: 'Failed to submit rating' });
+  }
+});
+
+module.exports = router;

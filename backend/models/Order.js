@@ -88,9 +88,13 @@ const orderSchema = new mongoose.Schema({
     type: Number,
     required: true
   },
+  usedZaikaCoins: {
+    type: Boolean,
+    default: false
+  },
   status: {
     type: String,
-    enum: ['Order Placed', 'Accepted', 'Preparing', 'Ready for Delivery', 'Out for Delivery', 'Delivered', 'Cancelled'],
+    enum: ['Order Placed', 'Accepted', 'Preparing', 'Ready for Delivery', 'Out for Delivery', 'Arriving Soon', 'Delivered', 'Cancelled'],
     default: 'Order Placed'
   },
   paymentMethod: {
@@ -162,6 +166,15 @@ const orderSchema = new mongoose.Schema({
     type: String,
     trim: true,
     default: null
+  },
+  // Coupon applied at checkout
+  couponCode: {
+    type: String,
+    default: null
+  },
+  couponDiscount: {
+    type: Number,
+    default: 0
   }
 }, {
   timestamps: true

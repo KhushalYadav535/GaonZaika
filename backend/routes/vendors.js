@@ -162,6 +162,7 @@ router.get('/:id/live-status', verifyToken, getUser, requireVendor, async (req, 
         lastLiveToggle: vendor.lastLiveToggle,
         restaurant: {
           isOpen: vendor.restaurantId?.isOpen || false,
+          isBusy: vendor.restaurantId?.isBusy || false,
           name: vendor.restaurantId?.name
         }
       }
@@ -173,6 +174,30 @@ router.get('/:id/live-status', verifyToken, getUser, requireVendor, async (req, 
       success: false,
       message: 'Failed to get live status'
     });
+  }
+});
+
+// Toggle restaurant busy status
+router.patch('/:id/toggle-busy', verifyToken, getUser, requireVendor, async (req, res) => {
+  try {
+    const vendor = await Vendor.findById(req.params.id).populate('restaurantId');
+    if (!vendor) return res.status(404).json({ success: false, message: 'Vendor not found' });
+    if (vendor._id.toString() !== req.user.id) return res.status(403).json({ success: false, message: 'Not authorized' });
+
+    const restaurant = await Restaurant.findById(vendor.restaurantId._id);
+    if (!restaurant) return res.status(404).json({ success: false, message: 'Restaurant not found' });
+
+    restaurant.isBusy = !restaurant.isBusy;
+    await restaurant.save();
+
+    res.json({
+      success: true,
+      message: restaurant.isBusy ? 'Restaurant marked as busy. Increased wait times.' : 'Restaurant is back to normal.',
+      data: { isBusy: restaurant.isBusy }
+    });
+  } catch (error) {
+    console.error('Error toggling busy status:', error);
+    res.status(500).json({ success: false, message: 'Failed to toggle busy status' });
   }
 });
 
@@ -517,6 +542,41 @@ router.get('/:id/dashboard', async (req, res) => {
     const thisMonthRevenue = orders
       .filter(order => order.createdAt >= monthAgo)
       .reduce((sum, order) => sum + order.totalAmount, 0);
+      
+    // Weekly Revenue Trend (Last 7 days)
+    const weeklyRevenue = Array(7).fill(0);
+    const weeklyLabels = [];
+    const todayDate = new Date();
+    
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(todayDate);
+      d.setDate(d.getDate() - i);
+      weeklyLabels.push(d.toLocaleDateString('en-US', { weekday: 'short' }));
+      
+      const dayStart = new Date(d);
+      dayStart.setHours(0, 0, 0, 0);
+      const dayEnd = new Date(d);
+      dayEnd.setHours(23, 59, 59, 999);
+      
+      const dayRevenue = orders
+        .filter(order => order.createdAt >= dayStart && order.createdAt <= dayEnd && order.status === 'Delivered')
+        .reduce((sum, order) => sum + order.totalAmount, 0);
+        
+      weeklyRevenue[6-i] = dayRevenue;
+    }
+    
+    // Get popular items
+    const itemCounts = {};
+    orders.filter(o => o.status === 'Delivered').forEach(order => {
+      order.items.forEach(item => {
+        itemCounts[item.name] = (itemCounts[item.name] || 0) + item.quantity;
+      });
+    });
+    
+    const popularItems = Object.keys(itemCounts)
+      .map(name => ({ name, count: itemCounts[name] }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 5);
     
     // Get restaurant ratings
     const restaurant = await Restaurant.findOne({ vendorId });
@@ -534,7 +594,10 @@ router.get('/:id/dashboard', async (req, res) => {
         thisWeekRevenue,
         thisMonthRevenue,
         averageRating,
-        totalRatings
+        totalRatings,
+        weeklyRevenue,
+        weeklyLabels,
+        popularItems
       }
     });
     
@@ -882,7 +945,7 @@ router.post('/:vendorId/menu', verifyToken, getUser, requireVendor, uploadImage,
 });
 
 // Update menu item with image
-router.put('/:id/menu/:itemId', verifyToken, getUser, requireVendor, uploadImage, async (req, res) => {
+router.put('/:vendorId/menu/:itemId', verifyToken, getUser, requireVendor, uploadImage, async (req, res) => {
   try {
     // Manual validation for multipart/form-data (optional fields for update)
     const validationErrors = [];

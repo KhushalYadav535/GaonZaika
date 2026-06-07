@@ -76,6 +76,24 @@ router.post('/login', [
   }
 });
 
+// GET active offers (for customer app — public)
+router.get('/offers/active', async (req, res) => {
+  try {
+    const now = new Date();
+    const offers = await Offer.find({
+      isActive: true,
+      validFrom: { $lte: now },
+      validTo: { $gte: now }
+    })
+      .populate('restaurantId', 'name image')
+      .sort({ displayOrder: 1 })
+      .limit(10);
+    res.json({ success: true, data: offers });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Failed to fetch offers' });
+  }
+});
+
 // Protect all subsequent routes in this file
 const { verifyToken, getUser, requireAdmin, requireSuperAdmin } = require('../middleware/auth');
 router.use(verifyToken, getUser, requireAdmin);
@@ -1225,24 +1243,6 @@ router.get('/offers', async (req, res) => {
     const offers = await Offer.find()
       .populate('restaurantId', 'name')
       .sort({ displayOrder: 1, createdAt: -1 });
-    res.json({ success: true, data: offers });
-  } catch (error) {
-    res.status(500).json({ success: false, message: 'Failed to fetch offers' });
-  }
-});
-
-// GET active offers (for customer app — public)
-router.get('/offers/active', async (req, res) => {
-  try {
-    const now = new Date();
-    const offers = await Offer.find({
-      isActive: true,
-      validFrom: { $lte: now },
-      validTo: { $gte: now }
-    })
-      .populate('restaurantId', 'name image')
-      .sort({ displayOrder: 1 })
-      .limit(10);
     res.json({ success: true, data: offers });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Failed to fetch offers' });

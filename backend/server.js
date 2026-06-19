@@ -249,46 +249,6 @@ const startServer = async () => {
     console.log(`🔗 Health check: http://localhost:${PORT}/health`);
     console.log(`🔐 Auth routes: http://localhost:${PORT}/api/auth`);
     console.log(`👤 Customer routes: http://localhost:${PORT}/api/customers`);
-
-    // ─── Self-Ping: Render free tier ko neend se bachao ───
-    // Production mein har 10 minute pe khud ko ping karta hai
-    // Taaki Google Play reviewer ke time server awake rahe
-    if (process.env.NODE_ENV === 'production') {
-      const SELF_URL = process.env.RENDER_EXTERNAL_URL || 'https://gaonzaika.onrender.com';
-      const PING_INTERVAL_MS = 10 * 60 * 1000; // 10 minutes
-
-      const selfPing = () => {
-        const https = require('https');
-        const http_module = require('http');
-        const pingUrl = `${SELF_URL}/health`;
-
-        const client = pingUrl.startsWith('https') ? https : http_module;
-
-        const req = client.get(pingUrl, (res) => {
-          console.log(`🏓 Self-ping OK — Status: ${res.statusCode} | ${new Date().toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata' })} IST`);
-        });
-
-        req.on('error', (err) => {
-          console.error(`❌ Self-ping failed: ${err.message}`);
-        });
-
-        req.setTimeout(10000, () => {
-          req.destroy();
-          console.warn('⚠️  Self-ping timeout (10s)');
-        });
-      };
-
-      // Pehla ping 1 minute baad (server warm-up ke liye wait)
-      setTimeout(selfPing, 60 * 1000);
-
-      // Uske baad har 10 minute pe
-      setInterval(selfPing, PING_INTERVAL_MS);
-
-      console.log(`🏓 Self-ping enabled → ${SELF_URL}/health (every 10 min)`);
-    } else {
-      console.log('ℹ️  Self-ping disabled (development mode)');
-    }
-    // ─────────────────────────────────────────────────────
   });
 };
 

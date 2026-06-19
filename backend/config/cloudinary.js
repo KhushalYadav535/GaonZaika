@@ -7,7 +7,7 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET
 });
 
-// Upload image to Cloudinary
+// Upload image to Cloudinary from file path
 const uploadImage = async (file) => {
   try {
     const result = await cloudinary.uploader.upload(file.path, {
@@ -32,6 +32,33 @@ const uploadImage = async (file) => {
   }
 };
 
+// Upload image to Cloudinary from memory buffer (for Render/serverless — no disk writes)
+const uploadImageBuffer = (buffer, mimetype) => {
+  return new Promise((resolve) => {
+    const uploadStream = cloudinary.uploader.upload_stream(
+      {
+        folder: 'gaon-zaika',
+        unique_filename: true,
+        overwrite: false,
+        resource_type: 'auto'
+      },
+      (error, result) => {
+        if (error) {
+          console.error('Error uploading buffer to Cloudinary:', error);
+          resolve({ success: false, error: error.message });
+        } else {
+          resolve({
+            success: true,
+            url: result.secure_url,
+            public_id: result.public_id
+          });
+        }
+      }
+    );
+    uploadStream.end(buffer);
+  });
+};
+
 // Delete image from Cloudinary
 const deleteImage = async (publicId) => {
   try {
@@ -53,5 +80,7 @@ const deleteImage = async (publicId) => {
 
 module.exports = {
   uploadImage,
+  uploadImageBuffer,
   deleteImage
-}; 
+};
+ 

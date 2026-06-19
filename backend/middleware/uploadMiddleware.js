@@ -1,25 +1,5 @@
 const multer = require('multer');
-const path = require('path');
-const fs = require('fs');
-const { uploadImage: uploadToCloudinary } = require('../config/cloudinary');
-
-// Ensure uploads directory exists
-const uploadsDir = path.join(__dirname, '../uploads');
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir, { recursive: true });
-}
-
-// Configure multer storage
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, uploadsDir);
-  },
-  filename: function (req, file, cb) {
-    // Generate unique filename with timestamp
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
-  }
-});
+const { uploadImageBuffer } = require('../config/cloudinary');
 
 // File filter function
 const fileFilter = (req, file, cb) => {
@@ -31,9 +11,9 @@ const fileFilter = (req, file, cb) => {
   }
 };
 
-// Configure multer
+// Configure multer with MEMORY storage (no disk writes — required for Render/serverless)
 const upload = multer({
-  storage: storage,
+  storage: multer.memoryStorage(),
   fileFilter: fileFilter,
   limits: {
     fileSize: 5 * 1024 * 1024, // 5MB limit
@@ -57,12 +37,10 @@ const uploadImage = (req, res, next) => {
     }
 
     try {
-      // Upload to Cloudinary
-      const uploadResult = await uploadToCloudinary(req.file);
+      // Upload buffer directly to Cloudinary (no temp file needed)
+      const uploadResult = await uploadImageBuffer(req.file.buffer, req.file.mimetype);
       
       if (!uploadResult.success) {
-        // Cleanup local file
-        cleanupUploadedFile(req.file.path);
         return res.status(500).json({
           success: false,
           message: 'Failed to upload image to cloud storage'
@@ -75,13 +53,8 @@ const uploadImage = (req, res, next) => {
         publicId: uploadResult.public_id
       };
 
-      // Cleanup local file after successful upload
-      cleanupUploadedFile(req.file.path);
-
       next();
     } catch (error) {
-      // Cleanup local file
-      cleanupUploadedFile(req.file.path);
       console.error('Error in upload middleware:', error);
       return res.status(500).json({
         success: false,
@@ -91,14 +64,6 @@ const uploadImage = (req, res, next) => {
   });
 };
 
-// Cleanup uploaded files after processing
-const cleanupUploadedFile = (filePath) => {
-  if (filePath && fs.existsSync(filePath)) {
-    fs.unlinkSync(filePath);
-  }
-};
-
 module.exports = {
-  uploadImage,
-  cleanupUploadedFile
+  uploadImage
 }; 

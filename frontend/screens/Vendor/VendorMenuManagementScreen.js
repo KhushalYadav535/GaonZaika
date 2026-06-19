@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, FlatList, TouchableOpacity, TextInput, StyleSheet, Alert, Modal, Button, ActivityIndicator, Image } from 'react-native';
-import { Picker } from '@react-native-picker/picker';
+import { View, Text, FlatList, TouchableOpacity, TextInput, StyleSheet, Alert, Modal, Button, ActivityIndicator, Image, ScrollView } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import apiService from '../../services/apiService';
 import { useVendor } from '../../hooks/useVendor';
@@ -295,90 +294,95 @@ const VendorMenuManagementScreen = ({ route }) => {
       <Modal visible={modalVisible} animationType="slide" transparent>
         <View style={styles.modalContainer}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>{editItem ? 'Edit' : 'Add'} Menu Item</Text>
-            
-            <TextInput 
-              placeholder="Name" 
-              value={form.name} 
-              onChangeText={t => handleInputChange('name', t)} 
-              style={styles.input} 
-            />
-            
-            <TextInput 
-              placeholder="Description" 
-              value={form.description} 
-              onChangeText={t => handleInputChange('description', t)} 
-              style={styles.input} 
-              multiline
-              numberOfLines={3}
-            />
-            
-            <TextInput 
-              placeholder="Price" 
-              value={form.price} 
-              onChangeText={t => handleInputChange('price', t)} 
-              style={styles.input} 
-              keyboardType="numeric" 
-            />
-            
-            <TextInput 
-              placeholder="Preparation Time (minutes)" 
-              value={form.preparationTime} 
-              onChangeText={t => handleInputChange('preparationTime', t)} 
-              style={styles.input} 
-              keyboardType="numeric" 
-            />
-            
-            <View style={styles.pickerContainer}>
-              <Text style={styles.pickerLabel}>Category:</Text>
-              <Picker
-                selectedValue={form.category}
-                style={styles.picker}
-                onValueChange={(itemValue) => handleInputChange('category', itemValue)}
-              >
-                {validCategories.map((category) => (
-                  <Picker.Item key={category} label={category} value={category} />
-                ))}
-              </Picker>
-            </View>
-            
-            {/* Image Upload Section */}
-            <View style={styles.imageSection}>
-              <Text style={styles.imageLabel}>Item Image:</Text>
-              {imageFile ? (
-                <View style={styles.imagePreviewContainer}>
-                  <Image source={{ uri: imageFile.uri }} style={styles.imagePreview} />
-                  <TouchableOpacity style={styles.removeImageBtn} onPress={removeImage}>
-                    <Text style={styles.removeImageBtnText}>Remove</Text>
+            <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+              <Text style={styles.modalTitle}>{editItem ? 'Edit' : 'Add'} Menu Item</Text>
+              
+              <TextInput 
+                placeholder="Name" 
+                value={form.name} 
+                onChangeText={t => handleInputChange('name', t)} 
+                style={styles.input} 
+              />
+              
+              <TextInput 
+                placeholder="Description" 
+                value={form.description} 
+                onChangeText={t => handleInputChange('description', t)} 
+                style={styles.input} 
+                multiline
+                numberOfLines={3}
+              />
+              
+              <TextInput 
+                placeholder="Price" 
+                value={form.price} 
+                onChangeText={t => handleInputChange('price', t)} 
+                style={styles.input} 
+                keyboardType="numeric" 
+              />
+              
+              <TextInput 
+                placeholder="Preparation Time (minutes)" 
+                value={form.preparationTime} 
+                onChangeText={t => handleInputChange('preparationTime', t)} 
+                style={styles.input} 
+                keyboardType="numeric" 
+              />
+              
+              {/* Category Selection — explicit buttons (Picker breaks inside Modal on Android) */}
+              <Text style={styles.pickerLabel}>Category: <Text style={styles.selectedCategory}>{form.category}</Text></Text>
+              <View style={styles.categoryRow}>
+                {validCategories.map((cat) => (
+                  <TouchableOpacity
+                    key={cat}
+                    style={[styles.categoryBtn, form.category === cat && styles.categoryBtnSelected]}
+                    onPress={() => handleInputChange('category', cat)}
+                  >
+                    <Text style={[styles.categoryBtnText, form.category === cat && styles.categoryBtnTextSelected]}>
+                      {cat}
+                    </Text>
                   </TouchableOpacity>
-                </View>
-              ) : (
-                <TouchableOpacity style={styles.imagePickerBtn} onPress={pickImage}>
-                  <Text style={styles.imagePickerBtnText}>📷 Select Image</Text>
-                </TouchableOpacity>
-              )}
-            </View>
-            
-            <View style={styles.row}>
-              <Text style={styles.label}>Veg?</Text>
-              <Button 
-                title={form.isVeg ? 'Yes' : 'No'} 
-                onPress={() => handleInputChange('isVeg', !form.isVeg)} 
-              />
-            </View>
-            
-            <View style={styles.row}>
-              <Text style={styles.label}>Available?</Text>
-              <Button 
-                title={form.isAvailable ? 'Yes' : 'No'} 
-                onPress={() => handleInputChange('isAvailable', !form.isAvailable)} 
-              />
-            </View>
-            
-            <View style={styles.modalActions}>
-              <Button title="Cancel" onPress={() => setModalVisible(false)} />
-              <Button title={editItem ? 'Update' : 'Add'} onPress={handleSubmit} />
-            </View>
+                ))}
+              </View>
+              
+              {/* Image Upload Section */}
+              <View style={styles.imageSection}>
+                <Text style={styles.imageLabel}>Item Image:</Text>
+                {imageFile ? (
+                  <View style={styles.imagePreviewContainer}>
+                    <Image source={{ uri: imageFile.uri }} style={styles.imagePreview} />
+                    <TouchableOpacity style={styles.removeImageBtn} onPress={removeImage}>
+                      <Text style={styles.removeImageBtnText}>Remove</Text>
+                    </TouchableOpacity>
+                  </View>
+                ) : (
+                  <TouchableOpacity style={styles.imagePickerBtn} onPress={pickImage}>
+                    <Text style={styles.imagePickerBtnText}>📷 Select Image</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+              
+              <View style={styles.row}>
+                <Text style={styles.label}>Veg?</Text>
+                <Button 
+                  title={form.isVeg ? 'Yes' : 'No'} 
+                  onPress={() => handleInputChange('isVeg', !form.isVeg)} 
+                />
+              </View>
+              
+              <View style={styles.row}>
+                <Text style={styles.label}>Available?</Text>
+                <Button 
+                  title={form.isAvailable ? 'Yes' : 'No'} 
+                  onPress={() => handleInputChange('isAvailable', !form.isAvailable)} 
+                />
+              </View>
+              
+              <View style={styles.modalActions}>
+                <Button title="Cancel" onPress={() => setModalVisible(false)} />
+                <Button title={editItem ? 'Update' : 'Add'} onPress={handleSubmit} />
+              </View>
+            </ScrollView>
           </View>
         </View>
       </Modal>
@@ -409,12 +413,16 @@ const styles = StyleSheet.create({
   deleteBtnText: { color: '#fff', fontSize: 14, fontWeight: 'bold' },
   emptyText: { textAlign: 'center', fontSize: 16, color: '#666', marginTop: 20 },
   modalContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.3)' },
-  modalContent: { backgroundColor: '#fff', padding: 20, borderRadius: 10, width: '90%', maxHeight: '80%' },
+  modalContent: { backgroundColor: '#fff', padding: 20, borderRadius: 10, width: '90%', maxHeight: '88%' },
   modalTitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 10 },
   input: { borderWidth: 1, borderColor: '#ccc', borderRadius: 6, padding: 8, marginBottom: 10 },
-  pickerContainer: { marginBottom: 10 },
-  pickerLabel: { fontSize: 16, marginBottom: 5, fontWeight: '500' },
-  picker: { borderWidth: 1, borderColor: '#ccc', borderRadius: 6 },
+  pickerLabel: { fontSize: 16, marginBottom: 8, fontWeight: '500' },
+  selectedCategory: { color: '#007bff', fontWeight: 'bold' },
+  categoryRow: { flexDirection: 'row', flexWrap: 'wrap', marginBottom: 12, gap: 6 },
+  categoryBtn: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 20, borderWidth: 1, borderColor: '#ccc', backgroundColor: '#f0f0f0', marginRight: 6, marginBottom: 6 },
+  categoryBtnSelected: { backgroundColor: '#007bff', borderColor: '#007bff' },
+  categoryBtnText: { fontSize: 13, color: '#333' },
+  categoryBtnTextSelected: { color: '#fff', fontWeight: 'bold' },
   imageSection: { marginTop: 10, marginBottom: 10 },
   imageLabel: { fontSize: 16, marginBottom: 5, fontWeight: '500' },
   imagePickerBtn: { backgroundColor: '#007bff', padding: 12, borderRadius: 8, alignItems: 'center' },
@@ -425,7 +433,7 @@ const styles = StyleSheet.create({
   removeImageBtnText: { color: '#fff', fontSize: 14, fontWeight: 'bold' },
   row: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
   label: { fontSize: 16, marginRight: 10, fontWeight: '500' },
-  modalActions: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 10 }
+  modalActions: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 10, marginBottom: 10 }
 });
 
 export default VendorMenuManagementScreen;

@@ -40,26 +40,22 @@ const uploadImage = (req, res, next) => {
       // Upload buffer directly to Cloudinary (no temp file needed)
       const uploadResult = await uploadImageBuffer(req.file.buffer, req.file.mimetype);
       
-      if (!uploadResult.success) {
-        return res.status(500).json({
-          success: false,
-          message: 'Failed to upload image to cloud storage'
-        });
+      if (uploadResult.success) {
+        // Set image info in request only on success
+        req.imageInfo = {
+          url: uploadResult.url,
+          publicId: uploadResult.public_id
+        };
+      } else {
+        // Log the failure but continue — menu item saves without image
+        console.warn('Cloudinary upload failed, continuing without image:', uploadResult.error);
       }
-
-      // Set image info in request
-      req.imageInfo = {
-        url: uploadResult.url,
-        publicId: uploadResult.public_id
-      };
 
       next();
     } catch (error) {
+      // Log the error but don't block the request — image is optional
       console.error('Error in upload middleware:', error);
-      return res.status(500).json({
-        success: false,
-        message: 'Failed to process image upload'
-      });
+      next();
     }
   });
 };

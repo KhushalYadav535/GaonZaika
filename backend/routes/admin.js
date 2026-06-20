@@ -9,6 +9,8 @@ const Offer = require('../models/Offer');
 const Coupon = require('../models/Coupon');
 const Customer = require('../models/Customer');
 const { body, validationResult } = require('express-validator');
+const { uploadImage } = require('../middleware/uploadMiddleware');
+const { deleteImage } = require('../config/cloudinary');
 
 // Test route to check if admin routes are working
 router.get('/test', (req, res) => {
@@ -213,16 +215,17 @@ router.get('/dashboard', async (req, res) => {
 // Get all restaurants (admin view)
 router.get('/restaurants', async (req, res) => {
   try {
-    const { limit = 20, page = 1 } = req.query;
+    const { limit = 100, page = 1 } = req.query;
     const skip = (parseInt(page) - 1) * parseInt(limit);
     
-    const restaurants = await Restaurant.find({ isActive: true })
-      .populate('vendorId', 'name email phone')
+    // Admin sees ALL restaurants (active + inactive)
+    const restaurants = await Restaurant.find({})
+      .populate('vendorId', 'name email phone isLive accountStatus lastLiveToggle')
       .sort({ createdAt: -1 })
       .limit(parseInt(limit))
       .skip(skip);
     
-    const total = await Restaurant.countDocuments({ isActive: true });
+    const total = await Restaurant.countDocuments({});
     
     res.json({
       success: true,
@@ -243,6 +246,7 @@ router.get('/restaurants', async (req, res) => {
     });
   }
 });
+
 
 // Update restaurant (admin view)
 router.put('/restaurants/:id', async (req, res) => {
@@ -324,26 +328,32 @@ router.get('/restaurants/:id/menu', async (req, res) => {
   }
 });
 
-// Add menu item (admin view)
-router.post('/restaurants/:id/menu', async (req, res) => {
+// Add menu item (admin view) — with optional image upload via Cloudinary
+router.post('/restaurants/:id/menu', uploadImage, async (req, res) => {
   try {
-    const { name, price, category, description, isVeg, preparationTime } = req.body;
+    const { name, price, category, description, isVeg, preparationTime, isAvailable } = req.body;
     const restaurant = await Restaurant.findById(req.params.id);
     
     if (!restaurant) {
       return res.status(404).json({ success: false, message: 'Restaurant not found' });
     }
-    
-    restaurant.menu.push({
+
+    const newItem = {
       name,
       price: parseFloat(price),
       category: category || 'Main Course',
       description: description || name,
-      isVeg: isVeg !== undefined ? isVeg : true,
+      isVeg: isVeg === 'true' || isVeg === true,
       preparationTime: preparationTime ? parseInt(preparationTime) : 15,
-      isAvailable: true
-    });
+      isAvailable: isAvailable !== 'false' && isAvailable !== false
+    };
+
+    // Attach Cloudinary image if uploaded
+    if (req.imageInfo) {
+      newItem.image = { url: req.imageInfo.url, publicId: req.imageInfo.publicId };
+    }
     
+    restaurant.menu.push(newItem);
     await restaurant.save();
     res.status(201).json({ success: true, message: 'Menu item added successfully', data: restaurant.menu[restaurant.menu.length - 1] });
   } catch (error) {
@@ -352,8 +362,8 @@ router.post('/restaurants/:id/menu', async (req, res) => {
   }
 });
 
-// Update menu item (admin view)
-router.put('/restaurants/:id/menu/:itemId', async (req, res) => {
+// Update menu item (admin view) — with optional image upload
+router.put('/restaurants/:id/menu/:itemId', uploadImage, async (req, res) => {
   try {
     const { id, itemId } = req.params;
     const updateData = req.body;
@@ -368,9 +378,18 @@ router.put('/restaurants/:id/menu/:itemId', async (req, res) => {
     if (updateData.price !== undefined) menuItem.price = parseFloat(updateData.price);
     if (updateData.category !== undefined) menuItem.category = updateData.category;
     if (updateData.description !== undefined) menuItem.description = updateData.description;
-    if (updateData.isVeg !== undefined) menuItem.isVeg = updateData.isVeg;
-    if (updateData.isAvailable !== undefined) menuItem.isAvailable = updateData.isAvailable;
+    if (updateData.isVeg !== undefined) menuItem.isVeg = updateData.isVeg === 'true' || updateData.isVeg === true;
+    if (updateData.isAvailable !== undefined) menuItem.isAvailable = updateData.isAvailable === 'true' || updateData.isAvailable === true;
     if (updateData.preparationTime !== undefined) menuItem.preparationTime = parseInt(updateData.preparationTime);
+
+    // Handle image update
+    if (req.imageInfo) {
+      // Delete old image from Cloudinary if exists
+      if (menuItem.image && menuItem.image.publicId) {
+        try { await deleteImage(menuItem.image.publicId); } catch(e) {}
+      }
+      menuItem.image = { url: req.imageInfo.url, publicId: req.imageInfo.publicId };
+    }
     
     await restaurant.save();
     res.json({ success: true, message: 'Menu item updated successfully', data: menuItem });
@@ -390,6 +409,11 @@ router.delete('/restaurants/:id/menu/:itemId', async (req, res) => {
     
     const menuItem = restaurant.menu.id(itemId);
     if (!menuItem) return res.status(404).json({ success: false, message: 'Menu item not found' });
+
+    // Delete image from Cloudinary if exists
+    if (menuItem.image && menuItem.image.publicId) {
+      try { await deleteImage(menuItem.image.publicId); } catch(e) {}
+    }
     
     restaurant.menu.pull(itemId);
     await restaurant.save();
@@ -398,6 +422,35 @@ router.delete('/restaurants/:id/menu/:itemId', async (req, res) => {
   } catch (error) {
     console.error('Error deleting menu item:', error);
     res.status(500).json({ success: false, message: 'Failed to delete menu item' });
+  }
+});
+
+// Upload/Update restaurant image (admin view)
+router.post('/restaurants/:id/image', uploadImage, async (req, res) => {
+  try {
+    const restaurant = await Restaurant.findById(req.params.id);
+    if (!restaurant) return res.status(404).json({ success: false, message: 'Restaurant not found' });
+
+    if (!req.imageInfo) {
+      return res.status(400).json({ success: false, message: 'No image uploaded' });
+    }
+
+    // Delete old image if exists
+    if (restaurant.image && typeof restaurant.image === 'object' && restaurant.image.publicId) {
+      try { await deleteImage(restaurant.image.publicId); } catch(e) {}
+    }
+
+    restaurant.image = req.imageInfo.url;
+    await restaurant.save();
+
+    res.json({
+      success: true,
+      message: 'Restaurant image updated successfully',
+      data: { imageUrl: req.imageInfo.url }
+    });
+  } catch (error) {
+    console.error('Error uploading restaurant image:', error);
+    res.status(500).json({ success: false, message: 'Failed to upload restaurant image' });
   }
 });
 
@@ -770,8 +823,169 @@ router.delete('/users/:id', async (req, res) => {
   }
 });
 
-// Get admin earnings details
+// ─── VENDOR LIVE TOGGLE (Admin Control) ────────────────────────────
+// POST /admin/vendors/:id/toggle-live
+router.post('/vendors/:id/toggle-live', async (req, res) => {
+  try {
+    const vendor = await Vendor.findById(req.params.id);
+    if (!vendor) {
+      return res.status(404).json({ success: false, message: 'Vendor not found' });
+    }
+
+    // Use existing model method that also updates restaurant's isOpen
+    await vendor.toggleLiveStatus();
+
+    res.json({
+      success: true,
+      message: `Vendor "${vendor.name}" is now ${vendor.isLive ? '🟢 LIVE' : '🔴 OFFLINE'}`,
+      data: {
+        vendorId: vendor._id,
+        name: vendor.name,
+        isLive: vendor.isLive,
+        restaurantId: vendor.restaurantId
+      }
+    });
+  } catch (error) {
+    console.error('Error toggling vendor live status:', error);
+    res.status(500).json({ success: false, message: 'Failed to toggle vendor status' });
+  }
+});
+
+// ─── FIX AFFILIATE COUPONS (One-time migration) ─────────────────────
+// POST /admin/fix-affiliate-coupons
+// Marks all coupons that are linked to any Affiliate as isAffiliate: true
+// Needed when coupons were created before the isAffiliate flag was introduced
+router.post('/fix-affiliate-coupons', async (req, res) => {
+  try {
+    const Affiliate = require('../models/Affiliate');
+    
+    // Get all affiliates that have a coupon linked
+    const affiliates = await Affiliate.find({ couponId: { $exists: true, $ne: null } });
+    
+    if (affiliates.length === 0) {
+      return res.json({ success: true, message: 'Koi affiliate coupon nahi mila', fixed: 0 });
+    }
+    
+    const couponIds = affiliates.map(a => a.couponId).filter(Boolean);
+    
+    // Bulk update: mark all linked coupons as isAffiliate: true
+    const result = await Coupon.updateMany(
+      { _id: { $in: couponIds } },
+      { $set: { isAffiliate: true } }
+    );
+    
+    res.json({
+      success: true,
+      message: `${result.modifiedCount} affiliate coupon(s) fix ho gaye — ab customer ko nahi dikhenge`,
+      data: {
+        affiliatesFound: affiliates.length,
+        couponsFixed: result.modifiedCount,
+        couponCodes: await Coupon.find({ _id: { $in: couponIds } }).select('code isAffiliate')
+      }
+    });
+  } catch (error) {
+    console.error('Error fixing affiliate coupons:', error);
+    res.status(500).json({ success: false, message: 'Fix failed: ' + error.message });
+  }
+});
+
+// ─── CUSTOMER OTP VIEWER (Admin Support Tool) ──────────────────────
+// GET /admin/customers/otp?phone=9876543210
+// Used when customer says "OTP nahi aaya" — admin manually share kare
+router.get('/customers/otp', async (req, res) => {
+  try {
+    const { phone } = req.query;
+    if (!phone) {
+      return res.status(400).json({ success: false, message: 'Phone number required' });
+    }
+
+    const customer = await Customer.findOne({ phone: phone.trim() });
+    if (!customer) {
+      return res.status(404).json({
+        success: false,
+        message: `Is phone number se koi customer registered nahi hai: ${phone}`
+      });
+    }
+
+    // Check if OTP exists and is still valid
+    if (!customer.phoneOTP || !customer.phoneOTP.code) {
+      return res.status(404).json({
+        success: false,
+        message: `${customer.name} ke liye koi active OTP nahi hai. Customer ko app se dobara OTP bhejne ko kahein.`
+      });
+    }
+
+    const isExpired = customer.phoneOTP.expiresAt && new Date() > new Date(customer.phoneOTP.expiresAt);
+    
+    res.json({
+      success: true,
+      data: {
+        customerName: customer.name,
+        phone: customer.phone,
+        email: customer.email,
+        otp: customer.phoneOTP.code,
+        expiresAt: customer.phoneOTP.expiresAt,
+        isExpired,
+        timeRemaining: isExpired ? 'Expired' : `${Math.max(0, Math.round((new Date(customer.phoneOTP.expiresAt) - new Date()) / 60000))} minutes remaining`
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching customer OTP:', error);
+    res.status(500).json({ success: false, message: 'Failed to fetch OTP' });
+  }
+});
+
+// ─── GENERATE OTP FOR CUSTOMER (Admin Support Tool) ────────────────
+// POST /admin/customers/generate-otp
+// Admin manually banata hai naya OTP jab customer ka SMS nahi aata
+// Ye OTP wahi field me save hota hai jo app login verify karta hai
+router.post('/customers/generate-otp', async (req, res) => {
+  try {
+    const { phone } = req.body;
+    if (!phone) {
+      return res.status(400).json({ success: false, message: 'Phone number required' });
+    }
+
+    const customer = await Customer.findOne({ phone: phone.trim() });
+    if (!customer) {
+      return res.status(404).json({
+        success: false,
+        message: `Is phone number se koi customer registered nahi hai: ${phone}. Pehle customer ko app pe register karwao.`
+      });
+    }
+
+    // Generate fresh 6-digit OTP
+    const crypto = require('crypto');
+    const otp = crypto.randomInt(100000, 999999).toString();
+    
+    // Valid for 10 minutes (same as normal OTP flow)
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+
+    // Save to customer's phoneOTP field — app verify karta hai isi field ko
+    customer.phoneOTP = { code: otp, expiresAt };
+    await customer.save();
+
+    res.json({
+      success: true,
+      message: `✅ ${customer.name} ke liye naya OTP generate ho gaya!`,
+      data: {
+        customerName: customer.name,
+        phone: customer.phone,
+        otp,
+        expiresAt,
+        validFor: '10 minutes',
+        instruction: `Customer ko ye OTP batao: ${otp} — App me "Enter OTP" screen pe type kare`
+      }
+    });
+  } catch (error) {
+    console.error('Error generating OTP:', error);
+    res.status(500).json({ success: false, message: 'OTP generate karne mein error' });
+  }
+});
+
+// GET admin earnings details
 router.get('/earnings', async (req, res) => {
+
   try {
     const { period = 'all' } = req.query;
     
@@ -1767,4 +1981,217 @@ router.put('/config', async (req, res) => {
   }
 });
 
-module.exports = router;
+// ═══════════════════════════════════════════════════════════════════
+// ─── AFFILIATE MANAGEMENT ─────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════
+const Affiliate = require('../models/Affiliate');
+
+// GET /admin/affiliates — List all affiliates
+router.get('/affiliates', async (req, res) => {
+  try {
+    const affiliates = await Affiliate.find({ isActive: true })
+      .populate('couponId', 'code type discount commissionAmount isActive')
+      .sort({ createdAt: -1 });
+
+    // Summary stats
+    const totalPending = affiliates.reduce((sum, a) => sum + (a.pendingCommission || 0), 0);
+    const totalPaid = affiliates.reduce((sum, a) => sum + (a.totalPaid || 0), 0);
+    const totalEarned = affiliates.reduce((sum, a) => sum + (a.totalCommissionEarned || 0), 0);
+
+    res.json({
+      success: true,
+      data: affiliates,
+      summary: { totalPending, totalPaid, totalEarned }
+    });
+  } catch (error) {
+    console.error('Error fetching affiliates:', error);
+    res.status(500).json({ success: false, message: 'Failed to fetch affiliates' });
+  }
+});
+
+// POST /admin/affiliates — Create new affiliate (auto-creates coupon too)
+router.post('/affiliates', async (req, res) => {
+  try {
+    const {
+      name, phone, email, couponCode, couponType = 'flat',
+      discountAmount, commissionAmount, commissionPerOrder,
+      minOrder = 0, usageLimit = 1000,
+      validFrom, validTo,
+      payoutDetails, notes
+    } = req.body;
+
+    if (!name || !phone || !couponCode || !commissionAmount) {
+      return res.status(400).json({
+        success: false,
+        message: 'Name, phone, coupon code aur commission amount required hain'
+      });
+    }
+
+    // Check if coupon code already exists
+    const existingCoupon = await Coupon.findOne({ code: couponCode.toUpperCase() });
+    if (existingCoupon) {
+      return res.status(409).json({
+        success: false,
+        message: 'Ye coupon code already exist karta hai. Koi doosra code choose karein.'
+      });
+    }
+
+    const vFrom = validFrom ? new Date(validFrom) : new Date();
+    const vTo = validTo ? new Date(validTo) : new Date(Date.now() + 365 * 24 * 60 * 60 * 1000); // 1 year default
+
+    // 1. Create Affiliate first (without couponId)
+    const affiliate = new Affiliate({
+      name,
+      phone,
+      email: email || '',
+      couponCode: couponCode.toUpperCase(),
+      commissionPerOrder: commissionAmount,
+      payoutDetails: payoutDetails || {},
+      notes: notes || ''
+    });
+    await affiliate.save();
+
+    // 2. Create the Coupon linked to this affiliate
+    const coupon = new Coupon({
+      code: couponCode.toUpperCase(),
+      description: `Affiliate coupon for ${name}`,
+      type: couponType,
+      discount: discountAmount || 0,
+      minOrder,
+      usageLimit,
+      validFrom: vFrom,
+      validTo: vTo,
+      isActive: true,
+      isAffiliate: true,
+      affiliateId: affiliate._id,
+      commissionAmount: commissionAmount
+    });
+    await coupon.save();
+
+    // 3. Update affiliate with couponId reference
+    affiliate.couponId = coupon._id;
+    await affiliate.save();
+
+    res.status(201).json({
+      success: true,
+      message: `Affiliate "${name}" create ho gaya! Coupon code: ${coupon.code}`,
+      data: { affiliate, coupon }
+    });
+  } catch (error) {
+    console.error('Error creating affiliate:', error);
+    res.status(500).json({ success: false, message: 'Affiliate create karne mein error', error: error.message });
+  }
+});
+
+// GET /admin/affiliates/:id — Single affiliate details
+router.get('/affiliates/:id', async (req, res) => {
+  try {
+    const affiliate = await Affiliate.findById(req.params.id)
+      .populate('couponId', 'code type discount commissionAmount isActive usedCount usageLimit validTo');
+    if (!affiliate) return res.status(404).json({ success: false, message: 'Affiliate nahi mila' });
+    res.json({ success: true, data: affiliate });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Failed to fetch affiliate' });
+  }
+});
+
+// PUT /admin/affiliates/:id — Update affiliate
+router.put('/affiliates/:id', async (req, res) => {
+  try {
+    const { name, phone, email, commissionAmount, payoutDetails, notes, isActive } = req.body;
+
+    const affiliate = await Affiliate.findById(req.params.id);
+    if (!affiliate) return res.status(404).json({ success: false, message: 'Affiliate nahi mila' });
+
+    if (name !== undefined) affiliate.name = name;
+    if (phone !== undefined) affiliate.phone = phone;
+    if (email !== undefined) affiliate.email = email;
+    if (commissionAmount !== undefined) {
+      affiliate.commissionPerOrder = commissionAmount;
+      // Also update the coupon's commissionAmount
+      if (affiliate.couponId) {
+        await Coupon.findByIdAndUpdate(affiliate.couponId, { commissionAmount });
+      }
+    }
+    if (payoutDetails !== undefined) affiliate.payoutDetails = { ...affiliate.payoutDetails, ...payoutDetails };
+    if (notes !== undefined) affiliate.notes = notes;
+    if (isActive !== undefined) affiliate.isActive = isActive;
+
+    await affiliate.save();
+    res.json({ success: true, message: 'Affiliate update ho gaya', data: affiliate });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Update failed', error: error.message });
+  }
+});
+
+// DELETE /admin/affiliates/:id — Deactivate affiliate (soft delete)
+router.delete('/affiliates/:id', async (req, res) => {
+  try {
+    const affiliate = await Affiliate.findById(req.params.id);
+    if (!affiliate) return res.status(404).json({ success: false, message: 'Affiliate nahi mila' });
+
+    // Deactivate the coupon too
+    if (affiliate.couponId) {
+      await Coupon.findByIdAndUpdate(affiliate.couponId, { isActive: false });
+    }
+    affiliate.isActive = false;
+    await affiliate.save();
+
+    res.json({ success: true, message: 'Affiliate deactivate ho gaya' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Delete failed' });
+  }
+});
+
+// POST /admin/affiliates/:id/payout — Mark commission as paid
+router.post('/affiliates/:id/payout', async (req, res) => {
+  try {
+    const { amount, transactionRef, notes } = req.body;
+    const affiliate = await Affiliate.findById(req.params.id);
+    if (!affiliate) return res.status(404).json({ success: false, message: 'Affiliate nahi mila' });
+
+    if (affiliate.pendingCommission <= 0) {
+      return res.status(400).json({ success: false, message: 'Koi pending commission nahi hai' });
+    }
+
+    const payAmount = amount || affiliate.pendingCommission;
+    await affiliate.markPaid(payAmount);
+
+    res.json({
+      success: true,
+      message: `₹${payAmount} payout mark as paid ho gaya`,
+      data: {
+        name: affiliate.name,
+        paidAmount: payAmount,
+        transactionRef: transactionRef || '',
+        remainingPending: affiliate.pendingCommission,
+        totalPaid: affiliate.totalPaid
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Payout failed', error: error.message });
+  }
+});
+
+// GET /admin/affiliates/:id/orders — Orders that used this affiliate's coupon
+router.get('/affiliates/:id/orders', async (req, res) => {
+  try {
+    const affiliate = await Affiliate.findById(req.params.id);
+    if (!affiliate) return res.status(404).json({ success: false, message: 'Affiliate nahi mila' });
+
+    const orders = await Order.find({
+      affiliateId: affiliate._id,
+      isActive: true
+    })
+      .populate('restaurantId', 'name')
+      .sort({ createdAt: -1 })
+      .limit(100);
+
+    res.json({ success: true, data: orders, totalOrders: orders.length });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Failed to fetch affiliate orders' });
+  }
+});
+
+module.exports = router;
+

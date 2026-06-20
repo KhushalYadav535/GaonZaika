@@ -490,16 +490,23 @@ router.get('/coupons', verifyToken, async (req, res) => {
     const now = new Date();
     
     // Find active coupons that are currently valid
+    // IMPORTANT: isAffiliate coupons are NEVER shown in the list —
+    // they are shared privately by the affiliate (like Zomato/Swiggy influencer codes)
+    // $ne: true also handles null / missing field cases
     let query = {
       isActive: true,
       validFrom: { $lte: now },
       validTo: { $gte: now },
+      isAffiliate: { $ne: true }   // ← excludes affiliate coupons completely
     };
 
     const allValidCoupons = await Coupon.find(query);
     
     // Filter by usage limit and restaurant applicability
     const applicableCoupons = allValidCoupons.filter(coupon => {
+      // DOUBLE SAFE EXCLUSION: If it's an affiliate coupon, drop it
+      if (coupon.isAffiliate === true) return false;
+      
       if (coupon.usedCount >= coupon.usageLimit) return false;
       
       if (coupon.applicableRestaurants && coupon.applicableRestaurants.length > 0) {
@@ -509,6 +516,8 @@ router.get('/coupons', verifyToken, async (req, res) => {
       }
       return true;
     });
+
+    console.log('[DEBUG] GET /api/customers/coupons - Returning coupons:', applicableCoupons.map(c => c.code));
 
     res.json({ success: true, data: applicableCoupons });
   } catch (error) {

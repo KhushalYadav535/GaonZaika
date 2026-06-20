@@ -175,6 +175,13 @@ const orderSchema = new mongoose.Schema({
   couponDiscount: {
     type: Number,
     default: 0
+  },
+  // ─── Affiliate Tracking ─────────────────────────────────────
+  // If the coupon was an affiliate coupon, link to the affiliate
+  affiliateId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Affiliate',
+    default: null
   }
 }, {
   timestamps: true

@@ -46,7 +46,9 @@ router.post('/', validateOrder, async (req, res) => {
       totalAmount,
       notes,
       paymentMethod = 'Cash on Delivery',
-      useZaikaCoins = false
+      useZaikaCoins = false,
+      couponCode = null,
+      couponDiscount = 0
     } = req.body;
 
     // Fetch dynamic delivery fee from AppConfig
@@ -127,6 +129,21 @@ router.post('/', validateOrder, async (req, res) => {
       });
     }
 
+    // ─── Affiliate Coupon Tracking ───────────────────────────────
+    let affiliateRef = null;
+    if (couponCode) {
+      try {
+        const Coupon = require('../models/Coupon');
+        const Affiliate = require('../models/Affiliate');
+        const couponDoc = await Coupon.findOne({ code: couponCode.toUpperCase(), isActive: true });
+        if (couponDoc && couponDoc.isAffiliate && couponDoc.affiliateId) {
+          affiliateRef = couponDoc.affiliateId;
+        }
+      } catch (affiliateErr) {
+        console.error('Affiliate coupon lookup error:', affiliateErr);
+      }
+    }
+
     // Create order with enhanced delivery information
     const order = new Order({
       restaurantId,
@@ -148,10 +165,33 @@ router.post('/', validateOrder, async (req, res) => {
       totalAmount: secureTotalAmount,
       usedZaikaCoins: appliedZaikaCoins,
       notes,
-      paymentMethod
+      paymentMethod,
+      couponCode: couponCode ? couponCode.toUpperCase() : null,
+      couponDiscount: couponDiscount || 0,
+      affiliateId: affiliateRef
     });
 
     await order.save();
+
+    // ─── Credit affiliate commission after order saved ────────────
+    if (affiliateRef) {
+      try {
+        const Coupon = require('../models/Coupon');
+        const Affiliate = require('../models/Affiliate');
+        const couponDoc = await Coupon.findOne({ code: couponCode.toUpperCase() });
+        const affiliate = await Affiliate.findById(affiliateRef);
+        if (affiliate && couponDoc) {
+          const commission = couponDoc.commissionAmount || affiliate.commissionPerOrder || 0;
+          await affiliate.addCommission(commission);
+          // Also increment usedCount on coupon
+          couponDoc.usedCount = (couponDoc.usedCount || 0) + 1;
+          await couponDoc.save();
+          console.log(`✅ Affiliate commission ₹${commission} credited to ${affiliate.name} for order ${order.orderId}`);
+        }
+      } catch (commErr) {
+        console.error('Error crediting affiliate commission:', commErr);
+      }
+    }
 
     // Generate OTP for delivery verification
     await order.generateOTP();

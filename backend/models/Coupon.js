@@ -54,6 +54,24 @@ const couponSchema = new mongoose.Schema({
   isActive: {
     type: Boolean,
     default: true
+  },
+  // ─── Affiliate Fields ───────────────────────────────────────
+  // Is this coupon linked to an affiliate partner?
+  isAffiliate: {
+    type: Boolean,
+    default: false
+  },
+  // Reference to the Affiliate document
+  affiliateId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Affiliate',
+    default: null
+  },
+  // Commission amount (flat ₹) that the affiliate earns per order
+  // This is SEPARATE from the discount given to the customer
+  commissionAmount: {
+    type: Number,
+    default: 0
   }
 }, {
   timestamps: true

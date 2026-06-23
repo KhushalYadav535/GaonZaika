@@ -103,12 +103,12 @@ const sendOTP = async (phoneNumber, otp) => {
   return sendViaApitxt(phoneNumber, otp);
 };
 
-const sendLoginOTP = async (phoneNumber, otp) => {
-  return sendViaApitxt(phoneNumber, otp);
+const sendLoginOTP = async (phoneNumber, otp, channel) => {
+  return sendViaApitxt(phoneNumber, otp, channel);
 };
 
-const sendRegistrationOTP = async (phoneNumber, otp) => {
-  return sendViaApitxt(phoneNumber, otp);
+const sendRegistrationOTP = async (phoneNumber, otp, channel) => {
+  return sendViaApitxt(phoneNumber, otp, channel);
 };
 
 module.exports = {

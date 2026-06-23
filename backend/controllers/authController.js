@@ -564,7 +564,7 @@ exports.loginCustomer = async (req, res) => {
 // Send OTP for login
 exports.sendCustomerLoginOTP = async (req, res) => {
   try {
-    const { phone } = req.body;
+    const { phone, channel } = req.body;
     
     if (!phone) {
       return res.status(400).json({
@@ -614,8 +614,8 @@ exports.sendCustomerLoginOTP = async (req, res) => {
     customer.phoneOTP = { code: otp, expiresAt };
     await customer.save();
 
-    // Send OTP via SMS
-    const smsResult = await sendLoginOTP(formattedPhone, otp);
+    // Send OTP via requested channel (SMS or WhatsApp)
+    const smsResult = await sendLoginOTP(formattedPhone, otp, channel);
     
     if (!smsResult.success) {
       // SMS fail hone par bhi OTP DB mein saved hai, soft-fail karein
@@ -782,7 +782,7 @@ exports.verifyCustomerLoginOTP = async (req, res) => {
 // Send OTP for registration
 exports.sendCustomerRegistrationOTP = async (req, res) => {
   try {
-    const { name, phone, referralCode } = req.body;
+    const { name, phone, referralCode, channel } = req.body;
 
     if (!name || !phone) {
       return res.status(400).json({
@@ -832,8 +832,8 @@ exports.sendCustomerRegistrationOTP = async (req, res) => {
       referralCode: referralCode ? referralCode.toUpperCase().trim() : null
     };
 
-    // Send OTP via SMS
-    const smsResult = await sendRegistrationOTP(formattedPhone, otp);
+    // Send OTP via requested channel
+    const smsResult = await sendRegistrationOTP(formattedPhone, otp, channel);
     
     if (!smsResult.success) {
       // SMS fail hone par bhi OTP memory mein saved hai, soft-fail karein
@@ -1319,6 +1319,7 @@ exports.loginDelivery = async (req, res) => {
         });
         await deliveryPerson.save();
       }
+      deliveryPerson.isOnline = false;
       await deliveryPerson.updateLastLogin();
       const token = generateToken(deliveryPerson._id, 'delivery');
       return res.json({
@@ -1357,7 +1358,8 @@ exports.loginDelivery = async (req, res) => {
       });
     }
 
-    // Update last login
+    // Update last login and reset online status
+    deliveryPerson.isOnline = false;
     await deliveryPerson.updateLastLogin();
 
     // Generate token

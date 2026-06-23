@@ -357,10 +357,30 @@ router.patch('/:id/status', [
       });
     }
 
+    // If status is "Ready for Delivery" or "Out for Delivery", assign delivery person FIRST
+    if (['Ready for Delivery', 'Out for Delivery'].includes(status) && !order.deliveryPersonId) {
+      const availableDeliveryPerson = await DeliveryPerson.findOne({
+        isActive: true,
+        isAvailable: true,
+        isOnline: true // Also ensure they are online
+      });
+
+      if (!availableDeliveryPerson) {
+        return res.status(400).json({
+          success: false,
+          message: 'No delivery boys are currently online and available. Cannot dispatch order.'
+        });
+      }
+      
+      order.deliveryPersonId = availableDeliveryPerson._id;
+      order.assignedTo = availableDeliveryPerson._id;
+      // We don't save here yet, it will be saved in updateStatus
+    }
+
     // Store old status for comparison
     const oldStatus = order.status;
 
-    // Update order status
+    // Update order status (this saves the order)
     await order.updateStatus(status);
 
     // Emit real-time status update via Socket.io
@@ -372,19 +392,6 @@ router.patch('/:id/status', [
         updatedAt: new Date()
       });
       console.log(`📡 Socket real-time event sent for order_${order.orderId}`);
-    }
-
-    // If status is "Out for Delivery", assign delivery person
-    if (status === 'Out for Delivery' && !order.deliveryPersonId) {
-      const availableDeliveryPerson = await DeliveryPerson.findOne({
-        isActive: true,
-        isAvailable: true
-      });
-
-      if (availableDeliveryPerson) {
-        order.deliveryPersonId = availableDeliveryPerson._id;
-        await order.save();
-      }
     }
 
     // Send push notifications based on status change
@@ -798,7 +805,7 @@ router.post('/:orderId/accept', verifyToken, requireDelivery, async (req, res) =
     // Atomic assignment: only assign if not already assigned
     const order = await Order.findOneAndUpdate(
       { _id: orderId, assignedTo: null, status: { $in: ['Order Placed'] } },
-      { assignedTo: deliveryBoyId, status: 'Accepted' },
+      { assignedTo: deliveryBoyId, deliveryPersonId: deliveryBoyId, status: 'Accepted' },
       { new: true }
     );
     if (!order) {

@@ -8,6 +8,12 @@ class PushNotificationService {
   // Send push notification to a single device
   async sendPushNotification(pushToken, title, body, data = {}, options = {}) {
     try {
+      // Reject dummy/invalid tokens early
+      if (!pushToken || pushToken === 'dummy-token-android-production') {
+        console.warn('⚠️ Skipping push notification: dummy or missing token');
+        return { success: false, message: 'Dummy or missing token' };
+      }
+
       if (!this.validatePushToken(pushToken)) {
         console.warn('Invalid push token format:', pushToken);
         return { success: false, message: 'Invalid token format' };
@@ -71,11 +77,22 @@ class PushNotificationService {
   // Send push notification to multiple devices
   async sendPushNotificationToMultiple(pushTokens, title, body, data = {}) {
     try {
+      // Filter out dummy/invalid tokens
+      const validTokens = pushTokens.filter(token =>
+        token &&
+        token !== 'dummy-token-android-production' &&
+        this.validatePushToken(token)
+      );
+
+      if (validTokens.length === 0) {
+        console.warn('⚠️ No valid push tokens to send to (all were dummy/invalid)');
+        return { success: false, message: 'No valid tokens' };
+      }
       // Automatically save to UserNotification if these tokens belong to Customers
       try {
         const Customer = require('../models/Customer');
         const UserNotification = require('../models/UserNotification');
-        const customers = await Customer.find({ pushToken: { $in: pushTokens } });
+        const customers = await Customer.find({ pushToken: { $in: validTokens } });
         
         if (customers.length > 0) {
           let notificationType = 'system';
@@ -99,7 +116,7 @@ class PushNotificationService {
         console.error('Error saving multiple UserNotifications:', dbErr);
       }
 
-      const messages = pushTokens.map(token => ({
+      const messages = validTokens.map(token => ({
         to: token,
         sound: 'default',
         title: title,
@@ -119,7 +136,7 @@ class PushNotificationService {
         },
       });
 
-      console.log('Push notifications sent to multiple devices:', response.data);
+      console.log(`Push notifications sent to ${validTokens.length} devices:`, response.data);
       return response.data;
     } catch (error) {
       console.error('Error sending push notifications to multiple devices:', error.response?.data || error.message);
@@ -141,10 +158,16 @@ class PushNotificationService {
     return await this.sendPushNotification(pushToken, title, body, data);
   }
 
-  // Send new order notification to vendor
+  // Send new order notification to vendor — uses MAX importance channel for loud alert
   async sendNewOrderToVendor(pushToken, orderId, customerName, totalAmount, itemCount) {
-    const title = '📲 New Order!';
-    const body = `Order #${orderId} from ${customerName} • ₹${totalAmount}`;
+    // Filter out dummy/invalid tokens before sending
+    if (!pushToken || pushToken === 'dummy-token-android-production') {
+      console.warn('⚠️ Skipping notification: invalid or dummy push token');
+      return { success: false, message: 'Invalid push token' };
+    }
+
+    const title = '🛎️ New Order!';
+    const body = `Order #${orderId} from ${customerName} • ₹${totalAmount} • ${itemCount} item(s)`;
     const data = {
       type: 'new_order',
       orderId: orderId,
@@ -153,7 +176,13 @@ class PushNotificationService {
       itemCount: itemCount,
     };
 
-    return await this.sendPushNotification(pushToken, title, body, data, { priority: 'high' });
+    // Use new-order-alert channel (MAX importance) so phone rings loudly
+    return await this.sendPushNotification(pushToken, title, body, data, {
+      priority: 'high',
+      channelId: 'new-order-alert',
+      vibrate: [0, 500, 300, 500, 300, 500],
+      ttl: 60, // Expire after 60 seconds if not delivered (order might be stale)
+    });
   }
 
   // Vendor accepted order - notify customer
@@ -316,6 +345,57 @@ class PushNotificationService {
     };
 
     return await this.sendPushNotification(pushToken, title, body, data);
+  }
+
+  // --- Order specific notification helpers ---
+
+  async sendNewOrderToVendor(pushToken, orderId, customerName, totalAmount, itemsCount) {
+    const title = '🚨 NEW ORDER RECEIVED! 🚨';
+    const body = `Order #${orderId} from ${customerName}. ${itemsCount} items (₹${totalAmount}). Accept quickly!`;
+    // Long vibration pattern to simulate ringing
+    const vibrate = [0, 1000, 500, 1000, 500, 1000, 500, 1000, 500, 1000, 500, 1000, 500, 1000];
+    return await this.sendPushNotification(pushToken, title, body, { type: 'new_order', orderId }, { priority: 'high', vibrate });
+  }
+
+  async sendOrderAcceptedToCustomer(pushToken, orderId, restaurantName, estimatedTime) {
+    const title = '✅ Order Accepted';
+    const body = `${restaurantName} is starting to prepare your order. Est. time: ${estimatedTime} mins.`;
+    return await this.sendPushNotification(pushToken, title, body, { type: 'order_accepted', orderId });
+  }
+
+  async sendOrderPreparingNotification(pushToken, orderId, restaurantName) {
+    const title = '👨‍🍳 Food is cooking!';
+    const body = `${restaurantName} is actively preparing your order.`;
+    return await this.sendPushNotification(pushToken, title, body, { type: 'order_preparing', orderId });
+  }
+
+  async sendOrderReadyForDeliveryBoys(pushTokens, orderId, restaurantName, customerName, distance, totalAmount) {
+    const title = '🚗 Order Ready for Pickup';
+    const body = `${restaurantName} -> ${customerName} (${distance}km). Order Value: ₹${totalAmount}`;
+    return await this.sendPushNotificationToMultiple(pushTokens, title, body, { type: 'order_ready_for_pickup', orderId });
+  }
+
+  async sendOrderStatusUpdate(pushToken, orderId, message, restaurantName) {
+    const title = '📦 Order Update';
+    return await this.sendPushNotification(pushToken, title, message, { type: 'order_update', orderId });
+  }
+
+  async sendOutForDeliveryNotification(pushToken, orderId, deliveryName, deliveryPhone, time) {
+    const title = '🛵 Out for Delivery!';
+    const body = `${deliveryName} is on the way with your food. Call ${deliveryPhone} if needed.`;
+    return await this.sendPushNotification(pushToken, title, body, { type: 'out_for_delivery', orderId });
+  }
+
+  async sendOrderDeliveredNotification(pushToken, orderId, restaurantName) {
+    const title = '🎉 Order Delivered!';
+    const body = `Enjoy your meal from ${restaurantName}! Don't forget to rate your experience.`;
+    return await this.sendPushNotification(pushToken, title, body, { type: 'order_delivered', orderId });
+  }
+
+  async sendOrderCancelledNotification(pushToken, orderId, reason) {
+    const title = '❌ Order Cancelled';
+    const body = `Unfortunately, your order #${orderId} was cancelled. Reason: ${reason}`;
+    return await this.sendPushNotification(pushToken, title, body, { type: 'order_cancelled', orderId });
   }
 
   // Validate push token format

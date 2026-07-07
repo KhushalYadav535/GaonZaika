@@ -3,6 +3,8 @@ const router = express.Router();
 const Vendor = require('../models/Vendor');
 const Restaurant = require('../models/Restaurant');
 const Order = require('../models/Order');
+const Offer = require('../models/Offer');
+const Coupon = require('../models/Coupon');
 const { body, validationResult } = require('express-validator');
 const MenuItem = require('../models/Restaurant'); // Menu is embedded in Restaurant
 const { verifyToken, getUser, requireVendor } = require('../middleware/auth');
@@ -506,10 +508,13 @@ router.get('/:id/dashboard', async (req, res) => {
     }
     
     // Get orders for this vendor
-    const orders = await Order.find({ 
+    const allOrders = await Order.find({ 
       restaurantId: { $in: restaurantIds },
       isActive: true 
     });
+    
+    // Only count non-cancelled orders for revenue stats
+    const orders = allOrders.filter(o => o.status !== 'Cancelled');
     
     // Calculate stats
     const totalOrders = orders.length;
@@ -1164,6 +1169,124 @@ router.get('/:id/menu', async (req, res) => {
       success: false,
       message: 'Failed to fetch menu'
     });
+  }
+});
+
+// Get vendor offers
+router.get('/:id/offers', verifyToken, getUser, requireVendor, async (req, res) => {
+  try {
+    const vendor = await Vendor.findById(req.params.id);
+    if (!vendor || vendor._id.toString() !== req.user.id) return res.status(403).json({ success: false, message: 'Not authorized' });
+    
+    const offers = await Offer.find({ restaurantId: vendor.restaurantId }).sort({ createdAt: -1 });
+    res.json({ success: true, data: offers });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Failed to fetch offers' });
+  }
+});
+
+// Create vendor offer
+router.post('/:id/offers', verifyToken, getUser, requireVendor, async (req, res) => {
+  try {
+    const vendor = await Vendor.findById(req.params.id);
+    if (!vendor || vendor._id.toString() !== req.user.id) return res.status(403).json({ success: false, message: 'Not authorized' });
+    
+    const offerData = { ...req.body, restaurantId: vendor.restaurantId };
+    const offer = await Offer.create(offerData);
+    res.json({ success: true, message: 'Offer created', data: offer });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Failed to create offer' });
+  }
+});
+
+// Update vendor offer
+router.put('/:id/offers/:offerId', verifyToken, getUser, requireVendor, async (req, res) => {
+  try {
+    const vendor = await Vendor.findById(req.params.id);
+    if (!vendor || vendor._id.toString() !== req.user.id) return res.status(403).json({ success: false, message: 'Not authorized' });
+    
+    const offer = await Offer.findOneAndUpdate(
+      { _id: req.params.offerId, restaurantId: vendor.restaurantId },
+      req.body,
+      { new: true }
+    );
+    if (!offer) return res.status(404).json({ success: false, message: 'Offer not found' });
+    res.json({ success: true, message: 'Offer updated', data: offer });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Failed to update offer' });
+  }
+});
+
+// Delete vendor offer
+router.delete('/:id/offers/:offerId', verifyToken, getUser, requireVendor, async (req, res) => {
+  try {
+    const vendor = await Vendor.findById(req.params.id);
+    if (!vendor || vendor._id.toString() !== req.user.id) return res.status(403).json({ success: false, message: 'Not authorized' });
+    
+    const offer = await Offer.findOneAndDelete({ _id: req.params.offerId, restaurantId: vendor.restaurantId });
+    if (!offer) return res.status(404).json({ success: false, message: 'Offer not found' });
+    res.json({ success: true, message: 'Offer deleted' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Failed to delete offer' });
+  }
+});
+
+// Get vendor coupons
+router.get('/:id/coupons', verifyToken, getUser, requireVendor, async (req, res) => {
+  try {
+    const vendor = await Vendor.findById(req.params.id);
+    if (!vendor || vendor._id.toString() !== req.user.id) return res.status(403).json({ success: false, message: 'Not authorized' });
+    
+    const coupons = await Coupon.find({ applicableRestaurants: vendor.restaurantId }).sort({ createdAt: -1 });
+    res.json({ success: true, data: coupons });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Failed to fetch coupons' });
+  }
+});
+
+// Create vendor coupon
+router.post('/:id/coupons', verifyToken, getUser, requireVendor, async (req, res) => {
+  try {
+    const vendor = await Vendor.findById(req.params.id);
+    if (!vendor || vendor._id.toString() !== req.user.id) return res.status(403).json({ success: false, message: 'Not authorized' });
+    
+    const couponData = { ...req.body, applicableRestaurants: [vendor.restaurantId] };
+    const coupon = await Coupon.create(couponData);
+    res.json({ success: true, message: 'Coupon created', data: coupon });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Failed to create coupon' });
+  }
+});
+
+// Update vendor coupon
+router.put('/:id/coupons/:couponId', verifyToken, getUser, requireVendor, async (req, res) => {
+  try {
+    const vendor = await Vendor.findById(req.params.id);
+    if (!vendor || vendor._id.toString() !== req.user.id) return res.status(403).json({ success: false, message: 'Not authorized' });
+    
+    const coupon = await Coupon.findOneAndUpdate(
+      { _id: req.params.couponId, applicableRestaurants: vendor.restaurantId },
+      req.body,
+      { new: true }
+    );
+    if (!coupon) return res.status(404).json({ success: false, message: 'Coupon not found' });
+    res.json({ success: true, message: 'Coupon updated', data: coupon });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Failed to update coupon' });
+  }
+});
+
+// Delete vendor coupon
+router.delete('/:id/coupons/:couponId', verifyToken, getUser, requireVendor, async (req, res) => {
+  try {
+    const vendor = await Vendor.findById(req.params.id);
+    if (!vendor || vendor._id.toString() !== req.user.id) return res.status(403).json({ success: false, message: 'Not authorized' });
+    
+    const coupon = await Coupon.findOneAndDelete({ _id: req.params.couponId, applicableRestaurants: vendor.restaurantId });
+    if (!coupon) return res.status(404).json({ success: false, message: 'Coupon not found' });
+    res.json({ success: true, message: 'Coupon deleted' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Failed to delete coupon' });
   }
 });
 

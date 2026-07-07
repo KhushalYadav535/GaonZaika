@@ -111,19 +111,23 @@ router.get('/dashboard', async (req, res) => {
     
     // Get revenue stats
     const orders = await Order.find({ isActive: true });
-    const totalRevenue = orders.reduce((sum, order) => sum + (order.totalAmount || 0), 0);
+    
+    // Only count non-cancelled orders for revenue & earnings
+    const validOrders = orders.filter(o => o.status !== 'Cancelled');
+    
+    const totalRevenue = validOrders.reduce((sum, order) => sum + (order.totalAmount || 0), 0);
     
     // Today's revenue
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const todayRevenue = orders
+    const todayRevenue = validOrders
       .filter(order => order.createdAt && order.createdAt >= today)
       .reduce((sum, order) => sum + (order.totalAmount || 0), 0);
     
     // This month's revenue
     const monthAgo = new Date();
     monthAgo.setMonth(monthAgo.getMonth() - 1);
-    const thisMonthRevenue = orders
+    const thisMonthRevenue = validOrders
       .filter(order => order.createdAt && order.createdAt >= monthAgo)
       .reduce((sum, order) => sum + (order.totalAmount || 0), 0);
     
@@ -138,7 +142,7 @@ router.get('/dashboard', async (req, res) => {
     const DELIVERY_CHARGE = config?.deliveryCharge || 8; // dynamic delivery charge
     
     // Calculate total admin earnings from vendor commissions + delivery charges
-    const totalAdminEarnings = orders.reduce((sum, order) => {
+    const totalAdminEarnings = validOrders.reduce((sum, order) => {
       const vendor = vendors.find(v => v.restaurantId && v.restaurantId.toString() === order.restaurantId.toString());
       if (vendor) {
         const commission = (order.totalAmount * VENDOR_COMMISSION_RATE) / 100;
@@ -149,7 +153,7 @@ router.get('/dashboard', async (req, res) => {
     }, 0);
     
     // Calculate today's admin earnings
-    const todayAdminEarnings = orders
+    const todayAdminEarnings = validOrders
       .filter(order => order.createdAt && order.createdAt >= today)
       .reduce((sum, order) => {
         const vendor = vendors.find(v => v.restaurantId && v.restaurantId.toString() === order.restaurantId.toString());
@@ -162,7 +166,7 @@ router.get('/dashboard', async (req, res) => {
       }, 0);
     
     // Calculate this month's admin earnings
-    const thisMonthAdminEarnings = orders
+    const thisMonthAdminEarnings = validOrders
       .filter(order => order.createdAt && order.createdAt >= monthAgo)
       .reduce((sum, order) => {
         const vendor = vendors.find(v => v.restaurantId && v.restaurantId.toString() === order.restaurantId.toString());
@@ -185,6 +189,54 @@ router.get('/dashboard', async (req, res) => {
       statusCounts[item._id] = item.count;
     });
     
+    // Generate last 7 days chart data
+    const chartData = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const dateString = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      
+      const dayStart = new Date(d);
+      dayStart.setHours(0, 0, 0, 0);
+      const dayEnd = new Date(d);
+      dayEnd.setHours(23, 59, 59, 999);
+      
+      const dayOrders = orders.filter(o => o.createdAt && o.createdAt >= dayStart && o.createdAt <= dayEnd);
+      const dayRevenue = dayOrders.reduce((sum, o) => sum + (o.totalAmount || 0), 0);
+      
+      chartData.push({
+        date: dateString,
+        revenue: dayRevenue,
+        orders: dayOrders.length
+      });
+    }
+
+    // Recent 5 orders
+    const recentOrders = await Order.find({ isActive: true })
+      .sort({ createdAt: -1 })
+      .limit(5)
+      .populate('restaurantId', 'name image')
+      .lean();
+      
+    // Top 5 restaurants by order count
+    const topRestaurantsPipeline = await Order.aggregate([
+      { $match: { isActive: true, status: 'Delivered' } },
+      { $group: { _id: '$restaurantId', orders: { $sum: 1 }, revenue: { $sum: '$totalAmount' } } },
+      { $sort: { orders: -1 } },
+      { $limit: 5 }
+    ]);
+    
+    const topRestaurants = await Promise.all(topRestaurantsPipeline.map(async (item) => {
+      const r = await Restaurant.findById(item._id).select('name image').lean();
+      return {
+        _id: item._id,
+        orders: item.orders,
+        revenue: item.revenue,
+        name: r ? r.name : 'Unknown',
+        image: r ? r.image : null
+      };
+    }));
+    
     res.json({
       success: true,
       data: {
@@ -198,7 +250,10 @@ router.get('/dashboard', async (req, res) => {
         totalAdminEarnings,
         todayAdminEarnings,
         thisMonthAdminEarnings,
-        orderStatusCounts: statusCounts
+        orderStatusCounts: statusCounts,
+        chartData,
+        recentOrders,
+        topRestaurants
       }
     });
     
@@ -252,11 +307,11 @@ router.get('/restaurants', async (req, res) => {
 router.put('/restaurants/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, address, cuisine } = req.body;
+    const updates = { ...req.body };
     
     const updatedRestaurant = await Restaurant.findByIdAndUpdate(
       id,
-      { name, address, cuisine },
+      updates,
       { new: true, runValidators: true }
     ).populate('vendorId', 'name email phone');
     
@@ -287,11 +342,7 @@ router.delete('/restaurants/:id', async (req, res) => {
   try {
     const { id } = req.params;
     
-    const deletedRestaurant = await Restaurant.findByIdAndUpdate(
-      id,
-      { isActive: false },
-      { new: true }
-    );
+    const deletedRestaurant = await Restaurant.findByIdAndDelete(id);
     
     if (!deletedRestaurant) {
       return res.status(404).json({
@@ -530,10 +581,14 @@ router.put('/orders/:id', async (req, res) => {
       });
     }
     
+    const obj = updatedOrder.toObject();
+    obj.restaurant = obj.restaurantId;
+    obj.deliveryPerson = obj.deliveryPersonId;
+
     res.json({
       success: true,
       message: 'Order updated successfully',
-      data: updatedOrder
+      data: obj
     });
     
   } catch (error) {
@@ -1006,7 +1061,9 @@ router.get('/earnings', async (req, res) => {
       ordersQuery.createdAt = { $gte: monthAgo };
     }
     
-    const orders = await Order.find(ordersQuery).populate('restaurantId', 'name');
+    const allOrders = await Order.find(ordersQuery).populate('restaurantId', 'name');
+    // Only count non-cancelled orders for earnings
+    const orders = allOrders.filter(o => o.status !== 'Cancelled');
     const vendors = await Vendor.find({ isActive: true });
     
     console.log(`Found ${orders.length} orders and ${vendors.length} vendors`);
@@ -1120,7 +1177,7 @@ router.post('/create-vendor', [
       return res.status(400).json({ success: false, message: errors.array()[0].msg });
     }
 
-    const { name, email, phone, password, restaurantName, restaurantAddress, cuisine } = req.body;
+    const { name, email, phone, password, restaurantName, restaurantAddress, cuisine, lat, lng } = req.body;
     const mongoose = require('mongoose');
 
     // Check duplicates
@@ -1136,7 +1193,7 @@ router.post('/create-vendor', [
       cuisine: cuisine || 'Mixed',
       contact: { phone, email: email.toLowerCase() },
       address: { fullAddress: restaurantAddress || 'Address to be updated' },
-      location: { type: 'Point', coordinates: [0, 0] },
+      location: { type: 'Point', coordinates: [Number(lng) || 0, Number(lat) || 0] },
       vendorId: placeholderId,
       isActive: true,
       isOpen: true,
@@ -1737,6 +1794,52 @@ router.post('/payouts/mark-paid', [
   }
 });
 
+// ─── VENDOR ORDER SETTLEMENTS (ORDER-BY-ORDER) ──────────────────────────────
+router.get('/vendor-orders/:vendorId', async (req, res) => {
+  try {
+    const vendor = await Vendor.findById(req.params.vendorId);
+    if (!vendor || !vendor.restaurantId) {
+      return res.status(404).json({ success: false, message: 'Vendor or associated restaurant not found' });
+    }
+    
+    // Fetch all Delivered orders for this restaurant
+    const orders = await Order.find({
+      restaurantId: vendor.restaurantId,
+      status: 'Delivered',
+      isActive: true
+    }).sort({ createdAt: -1 });
+
+    res.json({ success: true, data: orders });
+  } catch (error) {
+    console.error('Fetch vendor orders error:', error);
+    res.status(500).json({ success: false, message: 'Failed to fetch vendor orders' });
+  }
+});
+
+router.post('/vendor-orders/settle', async (req, res) => {
+  try {
+    const { orderIds } = req.body;
+    if (!orderIds || !Array.isArray(orderIds) || orderIds.length === 0) {
+      return res.status(400).json({ success: false, message: 'No orders provided for settlement' });
+    }
+
+    await Order.updateMany(
+      { _id: { $in: orderIds } },
+      { 
+        $set: { 
+          vendorPaymentStatus: 'Settled', 
+          vendorPaymentDate: new Date() 
+        } 
+      }
+    );
+
+    res.json({ success: true, message: 'Selected orders have been marked as Settled successfully.' });
+  } catch (error) {
+    console.error('Settle vendor orders error:', error);
+    res.status(500).json({ success: false, message: 'Failed to settle orders' });
+  }
+});
+
 // ─── BANNERS ────────────────────────────────────────────────────────
 router.get('/banners', async (req, res) => {
   try {
@@ -2193,5 +2296,164 @@ router.get('/affiliates/:id/orders', async (req, res) => {
   }
 });
 
+// ─── ADMIN ORDER MANUAL ASSIGNMENT ─────────────────────────────────────
+router.post('/orders/:id/assign-delivery', async (req, res) => {
+  try {
+    const { deliveryPersonId } = req.body;
+    const orderId = req.params.id;
+
+    if (!deliveryPersonId) {
+      return res.status(400).json({ success: false, message: 'Delivery Person ID is required' });
+    }
+
+    const order = await Order.findById(orderId);
+    if (!order) {
+      return res.status(404).json({ success: false, message: 'Order not found' });
+    }
+
+    const deliveryPerson = await DeliveryPerson.findById(deliveryPersonId);
+    if (!deliveryPerson) {
+      return res.status(404).json({ success: false, message: 'Delivery Person not found' });
+    }
+
+    // Update order with the new delivery boy
+    order.deliveryPersonId = deliveryPerson._id;
+    order.deliveryPerson = {
+      name: deliveryPerson.name,
+      phone: deliveryPerson.phone
+    };
+    
+    // Update delivery person's current assignment status if needed
+    // Assuming active assignment might be tracked somewhere, but updating the order is the primary source of truth.
+    
+    await order.save();
+    
+    // Fetch populated order for frontend
+    const populatedOrder = await Order.findById(order._id)
+      .populate('restaurantId', 'name cuisine')
+      .populate('deliveryPersonId', 'name phone');
+      
+    const obj = populatedOrder.toObject();
+    obj.restaurant = obj.restaurantId;
+    obj.deliveryPerson = obj.deliveryPersonId;
+
+    res.json({ 
+      success: true, 
+      message: 'Delivery person assigned successfully', 
+      data: obj 
+    });
+
+  } catch (error) {
+    console.error('Manual Assignment Error:', error);
+    res.status(500).json({ success: false, message: 'Failed to assign delivery person', error: error.message });
+  }
+});
+
+// ─── ADMIN MARKETING: Broadcast Push Notifications ──────────────────────────
+
+// POST /admin/marketing/push-notification — Send broadcast to all/targeted users
+router.post('/marketing/push-notification', verifyToken, requireAdmin, async (req, res) => {
+  try {
+    const { title, message, targetAudience = 'all' } = req.body;
+
+    if (!title || !message) {
+      return res.status(400).json({
+        success: false,
+        message: 'Title and message are required'
+      });
+    }
+
+    const pushNotificationService = require('../services/pushNotificationService');
+    const BroadcastNotification = require('../models/BroadcastNotification');
+
+    const tokens = [];
+
+    // Collect push tokens based on target audience
+    if (targetAudience === 'all' || targetAudience === 'customers') {
+      const customers = await Customer.find({
+        pushToken: { $exists: true, $nin: [null, '', 'dummy-token-android-production'] }
+      }).select('pushToken');
+      tokens.push(...customers.map(c => c.pushToken).filter(t => pushNotificationService.validatePushToken(t)));
+    }
+
+    if (targetAudience === 'all' || targetAudience === 'vendors') {
+      const vendors = await Vendor.find({
+        pushToken: { $exists: true, $nin: [null, '', 'dummy-token-android-production'] }
+      }).select('pushToken');
+      tokens.push(...vendors.map(v => v.pushToken).filter(t => pushNotificationService.validatePushToken(t)));
+    }
+
+    if (targetAudience === 'all' || targetAudience === 'delivery') {
+      const deliveryPeople = await DeliveryPerson.find({
+        pushToken: { $exists: true, $nin: [null, '', 'dummy-token-android-production'] }
+      }).select('pushToken');
+      tokens.push(...deliveryPeople.map(d => d.pushToken).filter(t => pushNotificationService.validatePushToken(t)));
+    }
+
+    let notifStatus = 'sent';
+    let recipientCount = 0;
+
+    if (tokens.length > 0) {
+      // Remove duplicate tokens
+      const uniqueTokens = [...new Set(tokens)];
+      recipientCount = uniqueTokens.length;
+
+      await pushNotificationService.sendPushNotificationToMultiple(
+        uniqueTokens,
+        title,
+        message,
+        { type: 'system' }
+      );
+    }
+
+    // Save broadcast to history
+    const broadcast = await BroadcastNotification.create({
+      title,
+      message,
+      targetAudience,
+      sentBy: req.user.id,
+      recipientCount,
+      status: notifStatus,
+    });
+
+    res.json({
+      success: true,
+      message: `Broadcast sent to ${recipientCount} device(s)`,
+      data: broadcast
+    });
+
+  } catch (error) {
+    console.error('Error sending broadcast notification:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to send broadcast notification',
+      error: error.message
+    });
+  }
+});
+
+// GET /admin/marketing/push-notifications-history — Get broadcast history
+router.get('/marketing/push-notifications-history', verifyToken, requireAdmin, async (req, res) => {
+  try {
+    const BroadcastNotification = require('../models/BroadcastNotification');
+    const history = await BroadcastNotification.find()
+      .sort({ sentAt: -1 })
+      .limit(100)
+      .lean();
+
+    res.json({
+      success: true,
+      data: history
+    });
+  } catch (error) {
+    console.error('Error fetching broadcast history:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch broadcast history'
+    });
+  }
+});
+
 module.exports = router;
+
 

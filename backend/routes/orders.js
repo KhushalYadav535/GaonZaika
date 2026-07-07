@@ -207,19 +207,23 @@ router.post('/', validateOrder, async (req, res) => {
 
     // Send push notification to vendor about new order
     try {
-      // Find vendor by restaurant
-      const vendor = await Restaurant.findById(restaurantId).populate('vendorId');
-
-      if (vendor && vendor.vendorId && vendor.vendorId.pushToken) {
-        await pushNotificationService.sendNewOrderToVendor(
-          vendor.vendorId.pushToken,
-          order.orderId,
-          customerInfo.name,
-          totalAmount,
-          items.length
-        );
-
-        console.log(`🔔 Push notification sent to vendor for new order ${order.orderId}`);
+      // Two-step lookup: Restaurant → Vendor (for reliable pushToken access)
+      const Vendor = require('../models/Vendor');
+      const restaurantDoc = await Restaurant.findById(restaurantId);
+      if (restaurantDoc && restaurantDoc.vendorId) {
+        const vendorDoc = await Vendor.findById(restaurantDoc.vendorId);
+        if (vendorDoc && vendorDoc.pushToken && pushNotificationService.validatePushToken(vendorDoc.pushToken)) {
+          await pushNotificationService.sendNewOrderToVendor(
+            vendorDoc.pushToken,
+            order.orderId,
+            customerInfo.name,
+            secureTotalAmount,
+            items.length
+          );
+          console.log(`🔔 Push notification sent to vendor for new order ${order.orderId}`);
+        } else {
+          console.warn(`⚠️ Vendor pushToken missing or invalid for restaurant ${restaurantId}`);
+        }
       }
     } catch (notificationError) {
       console.error('Error sending push notification to vendor:', notificationError);
@@ -242,10 +246,23 @@ router.post('/', validateOrder, async (req, res) => {
       success: true,
       message: 'Order placed successfully',
       data: {
+        _id: order._id,
         orderId: order.orderId,
+        status: order.status,
+        restaurantName: restaurant.name,
+        restaurantAddress: restaurant.address?.fullAddress || restaurant.address?.street || '',
+        restaurantLocation: restaurant.location?.coordinates || null,
+        items: order.items,
+        customerInfo: order.customerInfo,
+        subtotal: order.subtotal,
+        deliveryFee: order.deliveryFee,
+        couponCode: order.couponCode,
+        couponDiscount: order.couponDiscount || 0,
         totalAmount: order.totalAmount,
+        paymentMethod: order.paymentMethod,
+        notes: order.notes,
         estimatedDeliveryTime: order.estimatedDeliveryTime,
-        otp: order.otp.code // In production, don't send OTP in response
+        otp: order.otp.code,
       }
     });
 
@@ -280,7 +297,7 @@ router.get('/', async (req, res) => {
       }
     }
     const orders = await Order.find(query)
-      .populate('restaurantId', 'name cuisine')
+      .populate('restaurantId', 'name cuisine address location contact')
       .populate('deliveryPersonId', 'name phone')
       .sort({ createdAt: -1 })
       .limit(parseInt(limit))
@@ -493,6 +510,50 @@ router.patch('/:id/status', [
         }
       } catch (notificationError) {
         console.error('Error sending push notification:', notificationError);
+        // Don't fail the request if notification fails
+      }
+    }
+
+    // ─── Notify assigned delivery boy when status changes ────────────────
+    if (order.deliveryPersonId) {
+      try {
+        const deliveryPerson = await DeliveryPerson.findById(order.deliveryPersonId);
+        if (deliveryPerson && deliveryPerson.pushToken && pushNotificationService.validatePushToken(deliveryPerson.pushToken)) {
+          let deliveryTitle = null;
+          let deliveryBody = null;
+          switch (status) {
+            case 'Accepted':
+              deliveryTitle = '📋 Order Assigned';
+              deliveryBody = `Order #${order.orderId} has been accepted. Get ready for pickup!`;
+              break;
+            case 'Preparing':
+              deliveryTitle = '👨‍🍳 Order Being Prepared';
+              deliveryBody = `Order #${order.orderId} is being prepared. Be ready soon.`;
+              break;
+            case 'Ready for Delivery':
+              deliveryTitle = '🍽️ Order Ready!';
+              deliveryBody = `Order #${order.orderId} is ready. Head to the restaurant for pickup!`;
+              break;
+            case 'Cancelled':
+              deliveryTitle = '❌ Order Cancelled';
+              deliveryBody = `Order #${order.orderId} has been cancelled.`;
+              break;
+            default:
+              break;
+          }
+          if (deliveryTitle) {
+            await pushNotificationService.sendPushNotification(
+              deliveryPerson.pushToken,
+              deliveryTitle,
+              deliveryBody,
+              { type: 'order_update', orderId: order._id.toString(), status },
+              { priority: 'high', channelId: 'order-notifications' }
+            );
+            console.log(`🚴 Delivery boy notification sent for order ${order.orderId}: ${status}`);
+          }
+        }
+      } catch (deliveryNotifError) {
+        console.error('Error sending delivery boy notification:', deliveryNotifError);
         // Don't fail the request if notification fails
       }
     }

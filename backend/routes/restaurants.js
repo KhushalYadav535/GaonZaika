@@ -470,4 +470,40 @@ router.get('/:id/stats', async (req, res) => {
   }
 });
 
+// Get restaurant offers and coupons
+router.get('/:id/offers', async (req, res) => {
+  try {
+    const Offer = require('../models/Offer');
+    const Coupon = require('../models/Coupon');
+    const now = new Date();
+    
+    // Fetch global offers and restaurant-specific offers
+    const offers = await Offer.find({
+      isActive: true,
+      validFrom: { $lte: now },
+      validTo: { $gte: now },
+      $or: [{ restaurantId: null }, { restaurantId: req.params.id }]
+    }).sort({ displayOrder: 1 });
+    
+    // Fetch global coupons and restaurant-specific coupons
+    const coupons = await Coupon.find({
+      isActive: true,
+      validFrom: { $lte: now },
+      validTo: { $gte: now },
+      $or: [{ applicableRestaurants: { $size: 0 } }, { applicableRestaurants: req.params.id }]
+    }).sort({ createdAt: -1 });
+
+    res.json({
+      success: true,
+      data: { offers, coupons }
+    });
+  } catch (error) {
+    console.error('Error fetching restaurant offers:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch restaurant offers'
+    });
+  }
+});
+
 module.exports = router; 

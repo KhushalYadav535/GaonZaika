@@ -13,7 +13,7 @@ const offerSchema = new mongoose.Schema({
   },
   type: {
     type: String,
-    enum: ['percentage', 'flat', 'free_delivery', 'bogo'],
+    enum: ['percentage', 'flat', 'free_delivery', 'bogo', 'buy_2_get_1', 'free_item', 'custom'],
     required: true
   },
   value: {
@@ -40,6 +40,10 @@ const offerSchema = new mongoose.Schema({
   backgroundColor: {
     type: String,
     default: '#FF5722'
+  },
+  customLabel: {
+    type: String,
+    default: ''
   },
   validFrom: {
     type: Date,

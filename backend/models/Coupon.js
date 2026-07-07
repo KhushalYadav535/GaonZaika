@@ -15,7 +15,7 @@ const couponSchema = new mongoose.Schema({
   },
   type: {
     type: String,
-    enum: ['percentage', 'flat', 'free_delivery'],
+    enum: ['percentage', 'flat', 'free_delivery', 'bogo', 'buy_2_get_1', 'free_item', 'custom'],
     required: true
   },
   discount: {
@@ -26,6 +26,10 @@ const couponSchema = new mongoose.Schema({
   maxDiscount: {
     type: Number,
     default: null
+  },
+  customLabel: {
+    type: String,
+    default: ''
   },
   minOrder: {
     type: Number,

@@ -54,7 +54,7 @@ class PushNotificationService {
         priority: options.priority || 'high',
         vibrate: options.vibrate || [0, 250, 250, 250],
         badge: options.badge || 1,
-        channelId: options.channelId || 'order-notifications',
+        channelId: options.channelId || 'default',
         ttl: options.ttl || 3600,
       };
 
@@ -125,7 +125,7 @@ class PushNotificationService {
         priority: 'high',
         vibrate: [0, 250, 250, 250],
         badge: 1,
-        channelId: 'order-notifications',
+        channelId: 'default',
       }));
 
       const response = await axios.post(this.expoPushUrl, messages, {

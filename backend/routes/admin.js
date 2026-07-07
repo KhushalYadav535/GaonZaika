@@ -8,6 +8,9 @@ const Admin = require('../models/Admin');
 const Offer = require('../models/Offer');
 const Coupon = require('../models/Coupon');
 const Customer = require('../models/Customer');
+const Notification = require('../models/Notification');
+const AuditLog = require('../models/AuditLog');
+const pushNotificationService = require('../services/pushNotificationService');
 const { body, validationResult } = require('express-validator');
 const { uploadImage } = require('../middleware/uploadMiddleware');
 const { deleteImage } = require('../config/cloudinary');
@@ -98,6 +101,25 @@ router.get('/offers/active', async (req, res) => {
 
 // Protect all subsequent routes in this file
 const { verifyToken, getUser, requireAdmin, requireSuperAdmin } = require('../middleware/auth');
+
+// Helper to log admin actions
+const logAdminAction = async (req, action, targetId = null, details = null) => {
+  try {
+    if (!req.user || req.user.role !== 'admin' && req.user.role !== 'super_admin') return;
+    const admin = await Admin.findById(req.user.id);
+    if (!admin) return;
+    
+    await AuditLog.create({
+      adminId: admin._id,
+      adminName: admin.name || admin.email,
+      action,
+      targetId,
+      details
+    });
+  } catch (error) {
+    console.error('Failed to log admin action:', error);
+  }
+};
 router.use(verifyToken, getUser, requireAdmin);
 
 // Get admin dashboard stats
@@ -1833,6 +1855,8 @@ router.post('/vendor-orders/settle', async (req, res) => {
       }
     );
 
+    await logAdminAction(req, 'SETTLE_VENDOR_PAYOUT', null, { count: orderIds.length, orderIds });
+
     res.json({ success: true, message: 'Selected orders have been marked as Settled successfully.' });
   } catch (error) {
     console.error('Settle vendor orders error:', error);
@@ -1949,43 +1973,6 @@ router.post('/orders/:id/refund', async (req, res) => {
   }
 });
 
-// ─── BROADCAST NOTIFICATIONS ───────────────────────────────────────────
-router.get('/notifications', async (req, res) => {
-  try {
-    const Notification = require('../models/Notification');
-    const notifications = await Notification.find().sort({ sentAt: -1 });
-    res.json({ success: true, data: notifications });
-  } catch (error) {
-    res.status(500).json({ success: false, message: 'Failed to fetch notifications' });
-  }
-});
-
-router.post('/notifications', async (req, res) => {
-  try {
-    const Notification = require('../models/Notification');
-    const { title, message, targetAudience } = req.body;
-    
-    if (!title || !message) {
-      return res.status(400).json({ success: false, message: 'Title and message are required' });
-    }
-    
-    const notification = new Notification({
-      title,
-      message,
-      targetAudience: targetAudience || 'all'
-    });
-    
-    await notification.save();
-    
-    // Here we would typically integrate with Firebase Cloud Messaging (FCM)
-    // or OneSignal to actually dispatch the push notifications to devices.
-    // For now, we simulate success.
-    
-    res.status(201).json({ success: true, message: 'Broadcast sent successfully', data: notification });
-  } catch (error) {
-    res.status(500).json({ success: false, message: 'Failed to send broadcast' });
-  }
-});
 // ─── SUB-ADMIN MANAGEMENT ──────────────────────────────────────────────
 router.get('/admins', requireSuperAdmin, async (req, res) => {
   try {
@@ -2351,8 +2338,8 @@ router.post('/orders/:id/assign-delivery', async (req, res) => {
 
 // ─── ADMIN MARKETING: Broadcast Push Notifications ──────────────────────────
 
-// POST /admin/marketing/push-notification — Send broadcast to all/targeted users
-router.post('/marketing/push-notification', verifyToken, requireAdmin, async (req, res) => {
+// POST /admin/notifications — Send broadcast to all/targeted users
+router.post('/notifications', verifyToken, requireAdmin, async (req, res) => {
   try {
     const { title, message, targetAudience = 'all' } = req.body;
 
@@ -2432,8 +2419,8 @@ router.post('/marketing/push-notification', verifyToken, requireAdmin, async (re
   }
 });
 
-// GET /admin/marketing/push-notifications-history — Get broadcast history
-router.get('/marketing/push-notifications-history', verifyToken, requireAdmin, async (req, res) => {
+// GET /admin/notifications — Get broadcast history
+router.get('/notifications', verifyToken, requireAdmin, async (req, res) => {
   try {
     const BroadcastNotification = require('../models/BroadcastNotification');
     const history = await BroadcastNotification.find()
@@ -2454,6 +2441,17 @@ router.get('/marketing/push-notifications-history', verifyToken, requireAdmin, a
   }
 });
 
-module.exports = router;
+// ─── AUDIT LOGS ──────────────────────────
 
+// GET /admin/audit-logs
+router.get('/audit-logs', verifyToken, requireSuperAdmin, async (req, res) => {
+  try {
+    const logs = await AuditLog.find().sort({ createdAt: -1 }).limit(100);
+    res.json({ success: true, data: logs });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Failed to fetch audit logs' });
+  }
+});
+
+module.exports = router;
 

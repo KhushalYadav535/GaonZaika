@@ -966,6 +966,69 @@ router.post('/fix-affiliate-coupons', async (req, res) => {
   }
 });
 
+// ─── CUSTOMER MANAGEMENT ─────────────────────────────────────────
+
+// GET /admin/customers
+// Fetch all customers with their total orders and total amount spent
+router.get('/customers', async (req, res) => {
+  try {
+    // Get all customers (excluding passwords)
+    const customers = await Customer.find().select('-password').sort({ createdAt: -1 }).lean();
+
+    // Get order stats for each customer
+    const customerIds = customers.map(c => c._id);
+    const orderStats = await Order.aggregate([
+      { $match: { customer: { $in: customerIds } } },
+      { 
+        $group: { 
+          _id: '$customer', 
+          totalOrders: { $sum: 1 }, 
+          totalSpent: { $sum: '$totalAmount' } 
+        } 
+      }
+    ]);
+
+    // Create a map for quick lookup
+    const statsMap = {};
+    orderStats.forEach(stat => {
+      statsMap[stat._id.toString()] = stat;
+    });
+
+    // Merge stats with customers
+    const customersWithStats = customers.map(customer => {
+      const stats = statsMap[customer._id.toString()] || { totalOrders: 0, totalSpent: 0 };
+      return {
+        ...customer,
+        totalOrders: stats.totalOrders,
+        totalSpent: stats.totalSpent
+      };
+    });
+
+    res.json({ success: true, data: customersWithStats });
+  } catch (error) {
+    console.error('Error fetching customers:', error);
+    res.status(500).json({ success: false, message: 'Failed to fetch customers' });
+  }
+});
+
+// PUT /admin/customers/:id/toggle-status
+// Block or unblock a customer
+router.put('/customers/:id/toggle-status', async (req, res) => {
+  try {
+    const customer = await Customer.findById(req.params.id);
+    if (!customer) {
+      return res.status(404).json({ success: false, message: 'Customer not found' });
+    }
+
+    customer.isActive = !customer.isActive;
+    await customer.save();
+
+    res.json({ success: true, data: customer, message: `Customer ${customer.isActive ? 'unblocked' : 'blocked'} successfully` });
+  } catch (error) {
+    console.error('Error toggling customer status:', error);
+    res.status(500).json({ success: false, message: 'Failed to toggle status' });
+  }
+});
 // ─── CUSTOMER OTP VIEWER (Admin Support Tool) ──────────────────────
 // GET /admin/customers/otp?phone=9876543210
 // Used when customer says "OTP nahi aaya" — admin manually share kare

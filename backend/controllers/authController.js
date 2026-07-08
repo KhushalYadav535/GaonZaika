@@ -591,13 +591,20 @@ exports.sendCustomerLoginOTP = async (req, res) => {
 
     // Find customer (supports +91 / 91 / 10-digit stored formats)
     const phoneQuery = buildPhoneQuery(formattedPhone);
-    const customer = await Customer.findOne({ ...phoneQuery, isActive: true });
+    const customer = await Customer.findOne({ ...phoneQuery });
 
     if (!customer) {
       // For security, don't reveal if phone exists
       return res.json({
         success: true,
         message: 'Agar yeh number registered hai to OTP bhej diya gaya hai. Naye user Register tab use karein.'
+      });
+    }
+
+    if (customer.isActive === false) {
+      return res.status(403).json({
+        success: false,
+        message: 'Your account has been deactivated by the admin. Please contact support.'
       });
     }
 

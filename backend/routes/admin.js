@@ -975,13 +975,13 @@ router.get('/customers', async (req, res) => {
     // Get all customers (excluding passwords)
     const customers = await Customer.find().select('-password').sort({ createdAt: -1 }).lean();
 
-    // Get order stats for each customer
-    const customerIds = customers.map(c => c._id);
+    // Get order stats for each customer using phone number
+    const customerPhones = customers.map(c => c.phone);
     const orderStats = await Order.aggregate([
-      { $match: { customer: { $in: customerIds } } },
+      { $match: { 'customerInfo.phone': { $in: customerPhones } } },
       { 
         $group: { 
-          _id: '$customer', 
+          _id: '$customerInfo.phone', 
           totalOrders: { $sum: 1 }, 
           totalSpent: { $sum: '$totalAmount' } 
         } 
@@ -991,12 +991,12 @@ router.get('/customers', async (req, res) => {
     // Create a map for quick lookup
     const statsMap = {};
     orderStats.forEach(stat => {
-      statsMap[stat._id.toString()] = stat;
+      statsMap[stat._id] = stat;
     });
 
     // Merge stats with customers
     const customersWithStats = customers.map(customer => {
-      const stats = statsMap[customer._id.toString()] || { totalOrders: 0, totalSpent: 0 };
+      const stats = statsMap[customer.phone] || { totalOrders: 0, totalSpent: 0 };
       return {
         ...customer,
         totalOrders: stats.totalOrders,

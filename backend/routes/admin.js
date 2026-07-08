@@ -975,10 +975,33 @@ router.get('/customers', async (req, res) => {
     // Get all customers (excluding passwords)
     const customers = await Customer.find().select('-password').sort({ createdAt: -1 }).lean();
 
-    // Get order stats for each customer using phone number
-    const customerPhones = customers.map(c => c.phone);
+    // Build phone variations to catch all formats (+91, 91, or 10-digit)
+    const allPhoneVariations = [];
+    const customerPhoneMap = {}; // Maps variations back to the exact customer phone
+
+    customers.forEach(c => {
+      let p = c.phone.trim();
+      let variations = [p];
+      
+      if (p.startsWith('+91')) {
+        variations.push(p.substring(3)); // 10 digit
+        variations.push(p.substring(1)); // 91...
+      } else if (p.startsWith('91') && p.length === 12) {
+        variations.push(p.substring(2)); // 10 digit
+        variations.push('+' + p);        // +91...
+      } else if (p.length === 10) {
+        variations.push('+91' + p);
+        variations.push('91' + p);
+      }
+      
+      variations.forEach(v => {
+        allPhoneVariations.push(v);
+        customerPhoneMap[v] = c.phone;
+      });
+    });
+
     const orderStats = await Order.aggregate([
-      { $match: { 'customerInfo.phone': { $in: customerPhones } } },
+      { $match: { 'customerInfo.phone': { $in: allPhoneVariations } } },
       { 
         $group: { 
           _id: '$customerInfo.phone', 
@@ -988,10 +1011,17 @@ router.get('/customers', async (req, res) => {
       }
     ]);
 
-    // Create a map for quick lookup
+    // Create a map for quick lookup using the original customer phone format
     const statsMap = {};
     orderStats.forEach(stat => {
-      statsMap[stat._id] = stat;
+      const originalPhone = customerPhoneMap[stat._id];
+      if (originalPhone) {
+        if (!statsMap[originalPhone]) {
+          statsMap[originalPhone] = { totalOrders: 0, totalSpent: 0 };
+        }
+        statsMap[originalPhone].totalOrders += stat.totalOrders;
+        statsMap[originalPhone].totalSpent += stat.totalSpent;
+      }
     });
 
     // Merge stats with customers
